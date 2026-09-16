@@ -10,10 +10,15 @@ import type {
 const buildOpportunityName = (
   lead: VylinoLeadCapturePayload,
   options?: PersistLeadOptions,
-) =>
-  options?.opportunityName ??
-  [lead.identity.name, lead.serviceInterest].filter(Boolean).join(' — ') ||
-  'New Website Lead';
+) => {
+  if (options?.opportunityName) return options.opportunityName;
+
+  const inferredName = [lead.identity.name, lead.serviceInterest]
+    .filter(Boolean)
+    .join(' — ');
+
+  return inferredName || 'New Website Lead';
+};
 
 export const persistLeadToTwenty = async (
   transport: TwentyCrmTransport,
@@ -24,16 +29,13 @@ export const persistLeadToTwenty = async (
   let companyCreated = false;
 
   if (options?.companyName?.trim()) {
-    const existingCompany = await transport.findCompanyByName(
-      options.companyName.trim(),
-    );
+    const companyName = options.companyName.trim();
+    const existingCompany = await transport.findCompanyByName(companyName);
 
     if (existingCompany) {
       companyId = existingCompany.id;
     } else {
-      const company = await transport.createCompany({
-        name: options.companyName.trim(),
-      });
+      const company = await transport.createCompany({ name: companyName });
       companyId = company.id;
       companyCreated = true;
     }
@@ -64,10 +66,10 @@ export const persistLeadToTwenty = async (
     const opportunity = await transport.createOpportunity({
       name: buildOpportunityName(lead, options),
       amount: options.opportunityAmount,
+      currencyCode: options.opportunityCurrencyCode,
       stage: options.opportunityStage,
       personId,
       companyId,
-      sourceLeadId: lead.externalLeadId,
     });
 
     opportunityId = opportunity.id;
