@@ -124,14 +124,16 @@ const persistLead = async (
   const existingPerson = await findExistingPerson(crm, lead);
   let personId: string;
   let personCreated = false;
+  let effectiveCompanyId = companyId;
 
   if (existingPerson) {
     personId = existingPerson.id;
+    effectiveCompanyId = companyId ?? existingPerson.companyId;
     await crm.updatePerson(
       personId,
       mapLeadToPersonInput(
         lead,
-        companyId ?? existingPerson.companyId,
+        effectiveCompanyId,
         Boolean(options.writeAttributionFields),
       ),
     );
@@ -139,11 +141,12 @@ const persistLead = async (
     const person = await crm.createPerson(
       mapLeadToPersonInput(
         lead,
-        companyId,
+        effectiveCompanyId,
         Boolean(options.writeAttributionFields),
       ),
     );
     personId = person.id;
+    effectiveCompanyId = effectiveCompanyId ?? person.companyId;
     personCreated = true;
   }
 
@@ -157,7 +160,7 @@ const persistLead = async (
       currencyCode: options.opportunityCurrencyCode,
       stage: options.opportunityStage,
       personId,
-      companyId,
+      companyId: effectiveCompanyId,
     });
     opportunityId = opportunity.id;
     opportunityCreated = true;
@@ -165,7 +168,7 @@ const persistLead = async (
 
   return {
     personId,
-    companyId,
+    companyId: effectiveCompanyId,
     opportunityId,
     personCreated,
     companyCreated,
