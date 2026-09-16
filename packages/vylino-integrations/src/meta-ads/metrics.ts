@@ -1,4 +1,4 @@
-type MetaAction = {
+export type MetaAction = {
   action_type: string;
   value: string;
 };
@@ -9,24 +9,31 @@ export const getMetaActionValue = (
 ): number => {
   if (!actions) return 0;
 
-  return actions
-    .filter((action) => actionTypes.includes(action.action_type))
-    .reduce((total, action) => total + Number(action.value || 0), 0);
+  for (const actionType of actionTypes) {
+    const action = actions.find((item) => item.action_type === actionType);
+
+    if (action) {
+      const value = Number(action.value || 0);
+      return Number.isFinite(value) ? value : 0;
+    }
+  }
+
+  return 0;
 };
 
-export const normalizeMetaConversions = (actions?: MetaAction[]) => ({
-  leads: getMetaActionValue(actions, [
+export const normalizeMetaConversions = (actions?: MetaAction[]) => {
+  const leads = getMetaActionValue(actions, [
     'lead',
     'onsite_conversion.lead_grouped',
-  ]),
-  purchases: getMetaActionValue(actions, [
+  ]);
+  const purchases = getMetaActionValue(actions, [
     'purchase',
     'omni_purchase',
-  ]),
-  conversions: getMetaActionValue(actions, [
-    'lead',
-    'onsite_conversion.lead_grouped',
-    'purchase',
-    'omni_purchase',
-  ]),
-});
+  ]);
+
+  return {
+    leads,
+    purchases,
+    conversions: leads + purchases,
+  };
+};
