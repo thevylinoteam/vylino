@@ -9,6 +9,7 @@ import { VylinoMarketingSyncController } from './vylino-marketing-sync.controlle
 import { VylinoMarketingSyncScheduler } from './vylino-marketing-sync.scheduler';
 import { VylinoMarketingSyncStateService } from './vylino-marketing-sync-state.service';
 import { VylinoMarketingSyncService } from './vylino-marketing-sync.service';
+import { VylinoPaidMarketingExecutorService } from './vylino-paid-marketing-executor.service';
 
 @Module({
   imports: [RedisClientModule, ScheduleModule.forRoot()],
@@ -18,6 +19,7 @@ import { VylinoMarketingSyncService } from './vylino-marketing-sync.service';
     VylinoMarketingSyncController,
   ],
   providers: [
+    VylinoPaidMarketingExecutorService,
     VylinoMarketingSyncStateService,
     VylinoMarketingSyncService,
     VylinoMarketingSyncScheduler,
