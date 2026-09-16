@@ -38,6 +38,7 @@ type MetaPage<T> = {
     cursors?: {
       after?: string;
     };
+    next?: string;
   };
   error?: MetaGraphError;
 };
@@ -215,7 +216,7 @@ export class MetaGraphApiClient implements MetaAdsApiClient {
       );
 
       records.push(...(page.data ?? []));
-      after = page.paging?.cursors?.after;
+      after = page.paging?.next ? page.paging.cursors?.after : undefined;
     } while (after);
 
     return records;
