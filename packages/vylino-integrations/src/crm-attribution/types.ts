@@ -1,10 +1,10 @@
-import type { MarketingProvider } from '../marketing/types';
+import type { VylinoIntegrationProvider } from '../types';
 
 export type AttributionTouchpoint = {
   id: string;
   leadId: string;
   occurredAt: string;
-  provider?: MarketingProvider;
+  provider?: VylinoIntegrationProvider;
   source?: string;
   medium?: string;
   campaignId?: string;
@@ -44,7 +44,7 @@ export type RevenueAttribution = {
   model: AttributionModel;
   credit: number;
   attributedRevenue: number;
-  provider?: MarketingProvider;
+  provider?: VylinoIntegrationProvider;
   campaignId?: string;
   campaignName?: string;
 };
