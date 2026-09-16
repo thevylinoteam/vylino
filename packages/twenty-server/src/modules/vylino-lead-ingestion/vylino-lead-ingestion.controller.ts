@@ -1,10 +1,20 @@
-import { Body, Controller, HttpCode, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 
 import { timingSafeEqual } from 'crypto';
 import type { Request, Response } from 'express';
 import { ApiPath } from 'twenty-shared/types';
 
 import { RedisClientService } from 'src/engine/core-modules/redis-client/redis-client.service';
+import { NoPermissionGuard } from 'src/engine/guards/no-permission.guard';
+import { PublicEndpointGuard } from 'src/engine/guards/public-endpoint.guard';
 
 import { VylinoGraphqlCrmTransport } from './vylino-graphql-crm.transport';
 import { VylinoLeadIdempotencyStore } from './vylino-lead-ingestion.idempotency';
@@ -43,6 +53,7 @@ export class VylinoLeadIngestionController {
 
   @Post('ingest')
   @HttpCode(200)
+  @UseGuards(PublicEndpointGuard, NoPermissionGuard)
   async ingest(
     @Req() request: Request,
     @Res() response: Response,
