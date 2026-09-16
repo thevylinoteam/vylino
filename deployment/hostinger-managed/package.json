@@ -1,0 +1,12 @@
+{
+  "name": "vylino-hostinger-managed",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": "^24.0.0"
+  },
+  "scripts": {
+    "build": "bash build.sh",
+    "start": "node dist/hostinger-launcher.mjs"
+  }
+}
