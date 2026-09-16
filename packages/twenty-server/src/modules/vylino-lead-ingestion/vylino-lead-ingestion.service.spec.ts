@@ -88,7 +88,7 @@ describe('Vylino lead ingestion', () => {
     expect(crm.createOpportunity).not.toHaveBeenCalled();
   });
 
-  it('deduplicates by email before phone and creates an opportunity for an existing person', async () => {
+  it('deduplicates by email before phone and carries the existing company into the opportunity', async () => {
     const crm = makeCrm();
     crm.findPersonByEmail.mockResolvedValue({
       id: 'person-existing',
@@ -116,11 +116,12 @@ describe('Vylino lead ingestion', () => {
     expect(crm.createOpportunity).toHaveBeenCalledWith(
       expect.objectContaining({
         personId: 'person-existing',
-        companyId: undefined,
+        companyId: 'company-existing',
         stage: 'NEW',
         currencyCode: 'INR',
       }),
     );
+    expect(result.persistence?.companyId).toBe('company-existing');
     expect(result.persistence?.personCreated).toBe(false);
     expect(result.persistence?.opportunityCreated).toBe(true);
     expect(idempotencyStore.complete).toHaveBeenCalledWith('lead:test:1');
