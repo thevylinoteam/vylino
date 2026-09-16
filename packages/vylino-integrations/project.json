@@ -1,0 +1,25 @@
+{
+  "name": "vylino-integrations",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/vylino-integrations/src",
+  "projectType": "library",
+  "tags": ["scope:backend"],
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "npx tsc -p tsconfig.json --noEmit"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "npx oxlint src"
+      }
+    }
+  }
+}
