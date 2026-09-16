@@ -208,7 +208,7 @@ export class VylinoGraphqlCrmTransport implements VylinoCrmTransport {
         currencyCode: input.currencyCode ?? 'INR',
       };
     }
-    if (input.stage) record.stage = input.stage;
+    if (input.stage) record.vylinoSalesStage = input.stage;
     if (input.personId) record.pointOfContactId = input.personId;
     if (input.companyId) record.companyId = input.companyId;
 
