@@ -5,15 +5,15 @@ import type {
   TwentyOpportunityRecord,
   TwentyPersonCreateInput,
   TwentyPersonRecord,
-} from '../../../../vylino-integrations/src/twenty-crm/types';
-import type { TwentyCrmTransport } from '../../../../vylino-integrations/src/twenty-crm/transport';
+  VylinoCrmTransport,
+} from './vylino-lead-ingestion.types';
 
 type GraphQlResponse<T> = {
   data?: T;
   errors?: Array<{ message?: string }>;
 };
 
-export class VylinoGraphqlCrmTransport implements TwentyCrmTransport {
+export class VylinoGraphqlCrmTransport implements VylinoCrmTransport {
   constructor(
     private readonly graphqlUrl: string,
     private readonly apiKey: string,
@@ -32,15 +32,26 @@ export class VylinoGraphqlCrmTransport implements TwentyCrmTransport {
     const payload = (await response.json()) as GraphQlResponse<T>;
 
     if (!response.ok || payload.errors?.length) {
-      const message = payload.errors?.map((error) => error.message).filter(Boolean).join('; ');
-      throw new Error(message || `Twenty GraphQL request failed with ${response.status}`);
+      const message = payload.errors
+        ?.map((error) => error.message)
+        .filter(Boolean)
+        .join('; ');
+
+      throw new Error(
+        message || `Twenty GraphQL request failed with ${response.status}`,
+      );
     }
 
-    if (!payload.data) throw new Error('Twenty GraphQL response did not include data');
+    if (!payload.data) {
+      throw new Error('Twenty GraphQL response did not include data');
+    }
+
     return payload.data;
   }
 
-  async findPersonByEmail(email: string): Promise<TwentyPersonRecord | undefined> {
+  async findPersonByEmail(
+    email: string,
+  ): Promise<TwentyPersonRecord | undefined> {
     const data = await this.request<any>(
       `query FindPersonByEmail($email: String!) {
         people(filter: { emails: { primaryEmail: { eq: $email } } }, first: 1) {
@@ -50,6 +61,7 @@ export class VylinoGraphqlCrmTransport implements TwentyCrmTransport {
       { email },
     );
     const node = data.people?.edges?.[0]?.node;
+
     return node
       ? {
           id: node.id,
@@ -60,7 +72,9 @@ export class VylinoGraphqlCrmTransport implements TwentyCrmTransport {
       : undefined;
   }
 
-  async findPersonByPhone(phone: string): Promise<TwentyPersonRecord | undefined> {
+  async findPersonByPhone(
+    phone: string,
+  ): Promise<TwentyPersonRecord | undefined> {
     const data = await this.request<any>(
       `query FindPersonByPhone($phone: String!) {
         people(filter: { phones: { primaryPhoneNumber: { eq: $phone } } }, first: 1) {
@@ -70,6 +84,7 @@ export class VylinoGraphqlCrmTransport implements TwentyCrmTransport {
       { phone },
     );
     const node = data.people?.edges?.[0]?.node;
+
     return node
       ? {
           id: node.id,
@@ -82,17 +97,24 @@ export class VylinoGraphqlCrmTransport implements TwentyCrmTransport {
 
   private personData(input: Partial<TwentyPersonCreateInput>) {
     const data: Record<string, unknown> = {};
+
     if (input.firstName !== undefined || input.lastName !== undefined) {
-      data.name = { firstName: input.firstName ?? '', lastName: input.lastName ?? '' };
+      data.name = {
+        firstName: input.firstName ?? '',
+        lastName: input.lastName ?? '',
+      };
     }
     if (input.email) data.emails = { primaryEmail: input.email };
     if (input.phone) data.phones = { primaryPhoneNumber: input.phone };
     if (input.companyId) data.companyId = input.companyId;
     Object.assign(data, input.customFields ?? {});
+
     return data;
   }
 
-  async createPerson(input: TwentyPersonCreateInput): Promise<TwentyPersonRecord> {
+  async createPerson(
+    input: TwentyPersonCreateInput,
+  ): Promise<TwentyPersonRecord> {
     const data = await this.request<any>(
       `mutation CreatePerson($data: PersonCreateInput!) {
         createPerson(data: $data) { id companyId emails { primaryEmail } phones { primaryPhoneNumber } }
@@ -100,7 +122,11 @@ export class VylinoGraphqlCrmTransport implements TwentyCrmTransport {
       { data: this.personData(input) },
     );
     const node = data.createPerson;
-    if (!node?.id) throw new Error('Twenty createPerson did not return an id');
+
+    if (!node?.id) {
+      throw new Error('Twenty createPerson did not return an id');
+    }
+
     return {
       id: node.id,
       companyId: node.companyId ?? undefined,
@@ -109,7 +135,10 @@ export class VylinoGraphqlCrmTransport implements TwentyCrmTransport {
     };
   }
 
-  async updatePerson(personId: string, patch: Partial<TwentyPersonCreateInput>): Promise<TwentyPersonRecord> {
+  async updatePerson(
+    personId: string,
+    patch: Partial<TwentyPersonCreateInput>,
+  ): Promise<TwentyPersonRecord> {
     const data = await this.request<any>(
       `mutation UpdatePerson($id: UUID!, $data: PersonUpdateInput!) {
         updatePeople(filter: { id: { eq: $id } }, data: $data) {
@@ -119,6 +148,7 @@ export class VylinoGraphqlCrmTransport implements TwentyCrmTransport {
       { id: personId, data: this.personData(patch) },
     );
     const node = data.updatePeople?.edges?.[0]?.node;
+
     return node
       ? {
           id: node.id,
@@ -129,7 +159,9 @@ export class VylinoGraphqlCrmTransport implements TwentyCrmTransport {
       : { id: personId };
   }
 
-  async findCompanyByName(name: string): Promise<TwentyCompanyRecord | undefined> {
+  async findCompanyByName(
+    name: string,
+  ): Promise<TwentyCompanyRecord | undefined> {
     const data = await this.request<any>(
       `query FindCompanyByName($name: String!) {
         companies(filter: { name: { eq: $name } }, first: 1) { edges { node { id name } } }
@@ -137,22 +169,39 @@ export class VylinoGraphqlCrmTransport implements TwentyCrmTransport {
       { name },
     );
     const node = data.companies?.edges?.[0]?.node;
+
     return node ? { id: node.id, name: node.name ?? undefined } : undefined;
   }
 
-  async createCompany(input: TwentyCompanyCreateInput): Promise<TwentyCompanyRecord> {
+  async createCompany(
+    input: TwentyCompanyCreateInput,
+  ): Promise<TwentyCompanyRecord> {
     const record: Record<string, unknown> = { name: input.name };
-    if (input.domainName) record.domainName = { primaryLinkUrl: input.domainName };
+
+    if (input.domainName) {
+      record.domainName = { primaryLinkUrl: input.domainName };
+    }
+
     const data = await this.request<any>(
       `mutation CreateCompany($data: CompanyCreateInput!) { createCompany(data: $data) { id name } }`,
       { data: record },
     );
-    if (!data.createCompany?.id) throw new Error('Twenty createCompany did not return an id');
-    return { id: data.createCompany.id, name: data.createCompany.name ?? input.name };
+
+    if (!data.createCompany?.id) {
+      throw new Error('Twenty createCompany did not return an id');
+    }
+
+    return {
+      id: data.createCompany.id,
+      name: data.createCompany.name ?? input.name,
+    };
   }
 
-  async createOpportunity(input: TwentyOpportunityCreateInput): Promise<TwentyOpportunityRecord> {
+  async createOpportunity(
+    input: TwentyOpportunityCreateInput,
+  ): Promise<TwentyOpportunityRecord> {
     const record: Record<string, unknown> = { name: input.name };
+
     if (input.amount !== undefined) {
       record.amount = {
         amountMicros: Math.round(input.amount * 1_000_000),
@@ -169,7 +218,11 @@ export class VylinoGraphqlCrmTransport implements TwentyCrmTransport {
       }`,
       { data: record },
     );
-    if (!data.createOpportunity?.id) throw new Error('Twenty createOpportunity did not return an id');
+
+    if (!data.createOpportunity?.id) {
+      throw new Error('Twenty createOpportunity did not return an id');
+    }
+
     return {
       id: data.createOpportunity.id,
       name: data.createOpportunity.name ?? input.name,
