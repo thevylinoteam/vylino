@@ -1,5 +1,7 @@
-import { buildLeadCapture } from '../lead-capture/capture';
-import type { LeadCaptureInput } from '../lead-capture/types';
+import {
+  normalizeLeadCapture,
+  type VylinoLeadCaptureInput,
+} from '../lead-capture/capture';
 import type {
   ElementorFieldAliases,
   WordPressLeadSubmission,
@@ -10,8 +12,7 @@ const DEFAULT_ALIASES: Required<ElementorFieldAliases> = {
   name: ['name', 'full_name', 'your_name'],
   email: ['email', 'email_address', 'your_email'],
   phone: ['phone', 'mobile', 'whatsapp', 'phone_number'],
-  company: ['company', 'business', 'business_name'],
-  service: ['service', 'service_interest', 'requirement'],
+  serviceInterest: ['service', 'service_interest', 'requirement'],
   message: ['message', 'project_details', 'details'],
 };
 
@@ -38,16 +39,16 @@ const pickField = (
   return undefined;
 };
 
-export const mapElementorSubmissionToLead = (
+export const mapElementorSubmissionToLeadInput = (
   submission: WordPressLeadSubmission,
   aliases: ElementorFieldAliases = {},
-): LeadCaptureInput => {
+): VylinoLeadCaptureInput => {
   const mergedAliases: Required<ElementorFieldAliases> = {
     name: aliases.name ?? DEFAULT_ALIASES.name,
     email: aliases.email ?? DEFAULT_ALIASES.email,
     phone: aliases.phone ?? DEFAULT_ALIASES.phone,
-    company: aliases.company ?? DEFAULT_ALIASES.company,
-    service: aliases.service ?? DEFAULT_ALIASES.service,
+    serviceInterest:
+      aliases.serviceInterest ?? DEFAULT_ALIASES.serviceInterest,
     message: aliases.message ?? DEFAULT_ALIASES.message,
   };
 
@@ -56,28 +57,27 @@ export const mapElementorSubmissionToLead = (
     name: pickField(submission.fields, mergedAliases.name),
     email: pickField(submission.fields, mergedAliases.email),
     phone: pickField(submission.fields, mergedAliases.phone),
-    company: pickField(submission.fields, mergedAliases.company),
-    service: pickField(submission.fields, mergedAliases.service),
+    serviceInterest: pickField(
+      submission.fields,
+      mergedAliases.serviceInterest,
+    ),
     message: pickField(submission.fields, mergedAliases.message),
-    attribution: {
-      ...(submission.attribution ?? {}),
-      landingPage:
-        submission.attribution?.landingPage ?? submission.pageUrl ?? undefined,
-    },
+    sourceUrl: submission.pageUrl,
     capturedAt: submission.submittedAt,
+    ...(submission.attribution ?? {}),
+    landingPage:
+      submission.attribution?.landingPage ?? submission.pageUrl ?? undefined,
   };
 };
 
 export const buildElementorWebhookPayload = (
   submission: WordPressLeadSubmission,
   aliases?: ElementorFieldAliases,
-): WordPressLeadWebhookPayload => {
-  const leadInput = mapElementorSubmissionToLead(submission, aliases);
-
-  return {
-    source: 'wordpress',
-    platform: 'elementor',
-    submission,
-    lead: buildLeadCapture(leadInput),
-  };
-};
+): WordPressLeadWebhookPayload => ({
+  source: 'wordpress',
+  platform: 'elementor',
+  submission,
+  lead: normalizeLeadCapture(
+    mapElementorSubmissionToLeadInput(submission, aliases),
+  ),
+});
