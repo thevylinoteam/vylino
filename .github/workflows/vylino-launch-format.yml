@@ -1,0 +1,42 @@
+name: Vylino Launch Format
+
+on:
+  push:
+    branches:
+      - feature/phase-4-whatsapp-automation
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: ${{ !contains(github.event.head_commit.message, '[vylino-format]') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout launch branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/phase-4-whatsapp-automation
+          fetch-depth: 0
+
+      - name: Install dependencies
+        uses: ./.github/actions/yarn-install
+        with:
+          node-version: '24'
+
+      - name: Apply Twenty server formatter
+        run: npx nx lint twenty-server --configuration=fix
+
+      - name: Commit canonical formatting and remove one-shot workflow
+        shell: bash
+        run: |
+          git rm .github/workflows/vylino-launch-format.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/twenty-server packages/vylino-integrations
+          if git diff --cached --quiet; then
+            echo "No formatting changes were produced."
+            exit 1
+          fi
+          git commit -m "chore: apply launch formatting [vylino-format]"
+          git push origin HEAD:feature/phase-4-whatsapp-automation
