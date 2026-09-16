@@ -40,7 +40,7 @@ export const VYLINO_PAYMENT_EXTERNAL_ID_FIELD_ID =
 export const VYLINO_PAYMENT_PAID_AT_FIELD_ID =
   '57f3ea97-3055-41c4-aed7-1d333c3e2eca';
 export const VYLINO_PAYMENT_EXPIRES_AT_FIELD_ID =
-  'bc592dbd-0fde-4174-9cb9-0870664601a5';
+  'bfe4bc17-a4cf-4ef9-95dc-5515218a45a7';
 
 export default defineObject({
   universalIdentifier: VYLINO_PAYMENT_REQUEST_OBJECT_ID,
