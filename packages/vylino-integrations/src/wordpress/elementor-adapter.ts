@@ -64,7 +64,7 @@ export const mapElementorSubmissionToLeadInput = (
     message: pickField(submission.fields, mergedAliases.message),
     sourceUrl: submission.pageUrl,
     capturedAt: submission.submittedAt,
-    ...(submission.attribution ?? {}),
+    ...submission.attribution,
     landingPage:
       submission.attribution?.landingPage ?? submission.pageUrl ?? undefined,
   };
