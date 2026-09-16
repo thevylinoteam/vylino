@@ -6,7 +6,7 @@ type RedisLikeClient = {
     mode: 'EX',
     ttlSeconds: number,
     condition?: 'NX',
-  ): Promise<'OK' | null>;
+  ): Promise<string | null>;
   del(key: string): Promise<number>;
   eval(
     script: string,
