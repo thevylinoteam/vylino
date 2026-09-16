@@ -25,14 +25,14 @@ import { McpModule } from 'src/engine/api/mcp/mcp.module';
 import { RestApiModule } from 'src/engine/api/rest/rest-api.module';
 import { WorkspaceAuthContextMiddleware } from 'src/engine/core-modules/auth/middlewares/workspace-auth-context.middleware';
 import { MetricsModule } from 'src/engine/core-modules/metrics/metrics.module';
+import { ApiRequestContextMiddleware } from 'src/engine/core-modules/usage/middlewares/api-request-context.middleware';
+import { JwtModule } from 'src/engine/core-modules/jwt/jwt.module';
+import { UserSessionModule } from 'src/engine/core-modules/user-session/user-session.module';
 import { DataloaderModule } from 'src/engine/dataloaders/dataloader.module';
 import { WorkspaceMetadataVersionModule } from 'src/engine/metadata-modules/workspace-metadata-version/workspace-metadata-version.module';
-import { ApiRequestContextMiddleware } from 'src/engine/core-modules/usage/middlewares/api-request-context.middleware';
 import { CookieSessionCsrfMiddleware } from 'src/engine/middlewares/cookie-session-csrf.middleware';
 import { GraphQLHydrateRequestFromTokenMiddleware } from 'src/engine/middlewares/graphql-hydrate-request-from-token.middleware';
 import { MiddlewareModule } from 'src/engine/middlewares/middleware.module';
-import { JwtModule } from 'src/engine/core-modules/jwt/jwt.module';
-import { UserSessionModule } from 'src/engine/core-modules/user-session/user-session.module';
 import { RestCoreMiddleware } from 'src/engine/middlewares/rest-core.middleware';
 import { TwentyOrmModule } from 'src/engine/twenty-orm/twenty-orm.module';
 import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/workspace-cache-storage.module';
@@ -55,6 +55,15 @@ const MIGRATED_REST_METHODS = [
 
 const VYLINO_LEAD_INGESTION_ROUTE = `${ApiPath.Rest}/vylino/leads/ingest`;
 const VYLINO_MARKETING_SNAPSHOT_ROUTE = `${ApiPath.Rest}/vylino/marketing/snapshots`;
+const VYLINO_MARKETING_SYNC_RUN_ROUTE = `${ApiPath.Rest}/vylino/marketing/sync/run`;
+const VYLINO_MARKETING_SYNC_STATUS_ROUTE = `${ApiPath.Rest}/vylino/marketing/sync/status`;
+
+const VYLINO_PUBLIC_POST_ROUTES = [
+  VYLINO_LEAD_INGESTION_ROUTE,
+  VYLINO_MARKETING_SNAPSHOT_ROUTE,
+  VYLINO_MARKETING_SYNC_RUN_ROUTE,
+  VYLINO_MARKETING_SYNC_STATUS_ROUTE,
+];
 
 @Module({
   imports: [
@@ -121,14 +130,10 @@ export class AppModule {
           path: `${ApiPath.Auth}/saml/callback/:identityProviderId`,
           method: RequestMethod.POST,
         },
-        {
-          path: VYLINO_LEAD_INGESTION_ROUTE,
+        ...VYLINO_PUBLIC_POST_ROUTES.map((path) => ({
+          path,
           method: RequestMethod.POST,
-        },
-        {
-          path: VYLINO_MARKETING_SNAPSHOT_ROUTE,
-          method: RequestMethod.POST,
-        },
+        })),
       )
       .forRoutes({ path: '*path', method: RequestMethod.ALL });
 
@@ -167,14 +172,10 @@ export class AppModule {
 
       if (method === RequestMethod.POST) {
         middleware.exclude(
-          {
-            path: VYLINO_LEAD_INGESTION_ROUTE,
+          ...VYLINO_PUBLIC_POST_ROUTES.map((path) => ({
+            path,
             method: RequestMethod.POST,
-          },
-          {
-            path: VYLINO_MARKETING_SNAPSHOT_ROUTE,
-            method: RequestMethod.POST,
-          },
+          })),
         );
       }
 
