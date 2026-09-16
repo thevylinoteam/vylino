@@ -1,0 +1,35 @@
+name: Vylino Lockfile Bootstrap
+
+on:
+  push:
+    branches:
+      - feature/phase-2-integrations
+
+permissions:
+  contents: read
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Generate Vylino lockfile
+        working-directory: packages/twenty-apps/internal/vylino
+        run: yarn install
+
+      - name: Upload lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: vylino-yarn-lock
+          path: packages/twenty-apps/internal/vylino/yarn.lock
+          if-no-files-found: error
