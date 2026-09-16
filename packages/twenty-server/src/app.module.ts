@@ -38,6 +38,7 @@ import { TwentyOrmModule } from 'src/engine/twenty-orm/twenty-orm.module';
 import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/workspace-cache-storage.module';
 import { UnhandledExceptionFilter } from 'src/filters/unhandled-exception.filter';
 import { ModulesModule } from 'src/modules/modules.module';
+import { VylinoLeadIngestionModule } from 'src/modules/vylino-lead-ingestion/vylino-lead-ingestion.module';
 
 import { ClickHouseModule } from './database/clickhouse/clickhouse.module';
 import { CoreEngineModule } from './engine/core-modules/core-engine.module';
@@ -52,6 +53,9 @@ const MIGRATED_REST_METHODS = [
   RequestMethod.GET,
 ];
 
+const VYLINO_LEAD_INGESTION_ROUTE = `${ApiPath.Rest}/vylino/leads/ingest`;
+const VYLINO_MARKETING_SNAPSHOT_ROUTE = `${ApiPath.Rest}/vylino/marketing/snapshots`;
+
 @Module({
   imports: [
     SentryModule.forRoot(),
@@ -64,6 +68,7 @@ const MIGRATED_REST_METHODS = [
     ClickHouseModule,
     CoreEngineModule,
     ModulesModule,
+    VylinoLeadIngestionModule,
     // Needed for the user workspace middleware
     WorkspaceCacheStorageModule,
     CoreGraphQLApiModule,
@@ -111,10 +116,20 @@ export class AppModule {
       .apply(CookieSessionCsrfMiddleware)
       // A cross-origin form post from the identity provider, authenticated on the
       // assertion rather than the cookie.
-      .exclude({
-        path: `${ApiPath.Auth}/saml/callback/:identityProviderId`,
-        method: RequestMethod.POST,
-      })
+      .exclude(
+        {
+          path: `${ApiPath.Auth}/saml/callback/:identityProviderId`,
+          method: RequestMethod.POST,
+        },
+        {
+          path: VYLINO_LEAD_INGESTION_ROUTE,
+          method: RequestMethod.POST,
+        },
+        {
+          path: VYLINO_MARKETING_SNAPSHOT_ROUTE,
+          method: RequestMethod.POST,
+        },
+      )
       .forRoutes({ path: '*path', method: RequestMethod.ALL });
 
     consumer
@@ -144,13 +159,26 @@ export class AppModule {
       .forRoutes({ path: ApiPath.Mcp, method: RequestMethod.ALL });
 
     for (const method of MIGRATED_REST_METHODS) {
-      consumer
-        .apply(
-          ApiRequestContextMiddleware,
-          RestCoreMiddleware,
-          WorkspaceAuthContextMiddleware,
-        )
-        .forRoutes({ path: `${ApiPath.Rest}/*path`, method });
+      const middleware = consumer.apply(
+        ApiRequestContextMiddleware,
+        RestCoreMiddleware,
+        WorkspaceAuthContextMiddleware,
+      );
+
+      if (method === RequestMethod.POST) {
+        middleware.exclude(
+          {
+            path: VYLINO_LEAD_INGESTION_ROUTE,
+            method: RequestMethod.POST,
+          },
+          {
+            path: VYLINO_MARKETING_SNAPSHOT_ROUTE,
+            method: RequestMethod.POST,
+          },
+        );
+      }
+
+      middleware.forRoutes({ path: `${ApiPath.Rest}/*path`, method });
     }
   }
 }

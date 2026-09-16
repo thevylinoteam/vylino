@@ -1,0 +1,73 @@
+name: Provision Vylino CRM App
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: 'Base URL of the target Twenty instance, e.g. https://crm.example.com'
+        required: true
+        type: string
+      enable_attribution_after_install:
+        description: 'Informational flag: enable VYLINO_WRITE_ATTRIBUTION_FIELDS on the server after successful install'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: packages/twenty-apps/internal/vylino
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: packages/twenty-apps/internal/vylino/.nvmrc
+
+      - name: Validate target credentials
+        env:
+          TWENTY_API_URL: ${{ inputs.api_url }}
+          TWENTY_API_KEY: ${{ secrets.VYLINO_TWENTY_API_KEY }}
+        run: |
+          test -n "$TWENTY_API_URL" || (echo 'Missing api_url input' && exit 1)
+          test -n "$TWENTY_API_KEY" || (echo 'Missing repository secret VYLINO_TWENTY_API_KEY' && exit 1)
+
+      - name: Install app dependencies
+        run: yarn install
+
+      - name: Configure Twenty remote
+        env:
+          API_URL: ${{ inputs.api_url }}
+          API_KEY: ${{ secrets.VYLINO_TWENTY_API_KEY }}
+        run: |
+          mkdir -p ~/.twenty
+          node -e "const fs=require('fs'),path=require('path'),os=require('os');fs.writeFileSync(path.join(os.homedir(),'.twenty','config.json'),JSON.stringify({version:1,remotes:{vylino:{apiUrl:process.env.API_URL,apiKey:process.env.API_KEY,accessToken:process.env.API_KEY}}},null,2));"
+
+      - name: Lint Vylino app
+        run: yarn lint
+
+      - name: Publish private app
+        run: yarn twenty app:publish --private --remote vylino
+
+      - name: Install or upgrade app in workspace
+        run: yarn twenty app:install --remote vylino
+
+      - name: Activation reminder
+        env:
+          ENABLE_ATTRIBUTION: ${{ inputs.enable_attribution_after_install }}
+        run: |
+          echo 'Vylino CRM app publish/install completed.'
+          if [ "$ENABLE_ATTRIBUTION" = 'true' ]; then
+            echo 'Next server deployment should set VYLINO_WRITE_ATTRIBUTION_FIELDS=true.'
+          fi
