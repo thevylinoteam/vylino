@@ -1,0 +1,152 @@
+name: vylino-crm
+
+x-vylino-environment: &vylino-environment
+  NODE_ENV: production
+  PG_DATABASE_URL: postgres://${PG_DATABASE_USER:-postgres}:${PG_DATABASE_PASSWORD}@db:5432/${PG_DATABASE_NAME:-vylino}
+  SERVER_URL: https://crm.vylino.com
+  REDIS_URL: redis://redis:6379
+  STORAGE_TYPE: ${STORAGE_TYPE:-local}
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+  FALLBACK_ENCRYPTION_KEY: ${FALLBACK_ENCRYPTION_KEY:-}
+  APP_SECRET: ${APP_SECRET:-}
+
+  # Vylino CRM / lead ingestion
+  VYLINO_INGEST_SHARED_SECRET: ${VYLINO_INGEST_SHARED_SECRET}
+  VYLINO_TWENTY_GRAPHQL_URL: ${VYLINO_TWENTY_GRAPHQL_URL:-https://crm.vylino.com/graphql}
+  VYLINO_TWENTY_API_KEY: ${VYLINO_TWENTY_API_KEY:-}
+  VYLINO_WORKSPACE_ID: ${VYLINO_WORKSPACE_ID:-}
+  VYLINO_CREATE_OPPORTUNITY: ${VYLINO_CREATE_OPPORTUNITY:-true}
+  VYLINO_DEFAULT_OPPORTUNITY_STAGE: ${VYLINO_DEFAULT_OPPORTUNITY_STAGE:-NEW}
+  VYLINO_DEFAULT_CURRENCY_CODE: ${VYLINO_DEFAULT_CURRENCY_CODE:-INR}
+  VYLINO_WRITE_ATTRIBUTION_FIELDS: ${VYLINO_WRITE_ATTRIBUTION_FIELDS:-false}
+
+  # Paid-marketing automation stays disabled for first production boot.
+  VYLINO_MARKETING_SYNC_ENABLED: ${VYLINO_MARKETING_SYNC_ENABLED:-false}
+  VYLINO_MARKETING_SYNC_SHARED_SECRET: ${VYLINO_MARKETING_SYNC_SHARED_SECRET:-}
+  GOOGLE_ADS_CUSTOMER_ID: ${GOOGLE_ADS_CUSTOMER_ID:-}
+  GOOGLE_ADS_CLIENT_ID: ${GOOGLE_ADS_CLIENT_ID:-}
+  GOOGLE_ADS_CLIENT_SECRET: ${GOOGLE_ADS_CLIENT_SECRET:-}
+  GOOGLE_ADS_REFRESH_TOKEN: ${GOOGLE_ADS_REFRESH_TOKEN:-}
+  GOOGLE_ADS_LOGIN_CUSTOMER_ID: ${GOOGLE_ADS_LOGIN_CUSTOMER_ID:-}
+  GOOGLE_ADS_API_VERSION: ${GOOGLE_ADS_API_VERSION:-v25}
+  GOOGLE_ADS_DEVELOPER_TOKEN: ${GOOGLE_ADS_DEVELOPER_TOKEN:-}
+  META_ACCESS_TOKEN: ${META_ACCESS_TOKEN:-}
+  META_AD_ACCOUNT_ID: ${META_AD_ACCOUNT_ID:-}
+  META_APP_SECRET: ${META_APP_SECRET:-}
+  META_GRAPH_API_VERSION: ${META_GRAPH_API_VERSION:-v26.0}
+
+  # WhatsApp automation stays disabled for first production boot.
+  VYLINO_WHATSAPP_ENABLED: ${VYLINO_WHATSAPP_ENABLED:-false}
+  VYLINO_WHATSAPP_PROVIDER: ${VYLINO_WHATSAPP_PROVIDER:-META_CLOUD}
+  VYLINO_WHATSAPP_SHARED_SECRET: ${VYLINO_WHATSAPP_SHARED_SECRET:-}
+  VYLINO_WHATSAPP_AUTOMATION_MODE_DEFAULT: ${VYLINO_WHATSAPP_AUTOMATION_MODE_DEFAULT:-BOT}
+  WHATSAPP_CLOUD_ACCESS_TOKEN: ${WHATSAPP_CLOUD_ACCESS_TOKEN:-}
+  WHATSAPP_CLOUD_PHONE_NUMBER_ID: ${WHATSAPP_CLOUD_PHONE_NUMBER_ID:-}
+  WHATSAPP_CLOUD_VERIFY_TOKEN: ${WHATSAPP_CLOUD_VERIFY_TOKEN:-}
+  VYLINO_WHATSAPP_META_APP_SECRET: ${VYLINO_WHATSAPP_META_APP_SECRET:-}
+  WHATSAPP_CLOUD_GRAPH_API_VERSION: ${WHATSAPP_CLOUD_GRAPH_API_VERSION:-v26.0}
+  VYLINO_WHATSAPP_PAYMENT_SUCCESS_TEMPLATE: ${VYLINO_WHATSAPP_PAYMENT_SUCCESS_TEMPLATE:-}
+  VYLINO_WHATSAPP_TEMPLATE_LANGUAGE: ${VYLINO_WHATSAPP_TEMPLATE_LANGUAGE:-en}
+
+  # Cashfree is deliberately sandbox-first.
+  CASHFREE_ENVIRONMENT: ${CASHFREE_ENVIRONMENT:-sandbox}
+  CASHFREE_CLIENT_ID: ${CASHFREE_CLIENT_ID:-}
+  CASHFREE_CLIENT_SECRET: ${CASHFREE_CLIENT_SECRET:-}
+  CASHFREE_API_VERSION: ${CASHFREE_API_VERSION:-2025-01-01}
+  VYLINO_CASHFREE_NOTIFY_URL: ${VYLINO_CASHFREE_NOTIFY_URL:-https://crm.vylino.com/rest/vylino/whatsapp/webhook/cashfree}
+  VYLINO_CASHFREE_RETURN_URL: ${VYLINO_CASHFREE_RETURN_URL:-https://vylino.com/payment-status/}
+
+services:
+  server:
+    image: vylino-crm:${VYLINO_IMAGE_TAG:-production}
+    build:
+      context: .
+      dockerfile: packages/twenty-docker/twenty/Dockerfile
+      target: twenty
+      args:
+        APP_VERSION: ${APP_VERSION:-vylino-production}
+    environment:
+      <<: *vylino-environment
+      NODE_PORT: 3000
+      DISABLE_DB_MIGRATIONS: "false"
+      DISABLE_CRON_JOBS_REGISTRATION: "false"
+    volumes:
+      - server-local-data:/app/packages/twenty-server/.local-storage
+    expose:
+      - "3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:3000/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.vylino-crm.rule=Host(`crm.vylino.com`)
+      - traefik.http.routers.vylino-crm.entrypoints=websecure
+      - traefik.http.routers.vylino-crm.tls=true
+      - traefik.http.routers.vylino-crm.tls.certresolver=letsencrypt
+      - traefik.http.services.vylino-crm.loadbalancer.server.port=3000
+    networks:
+      - default
+      - traefik-proxy
+
+  worker:
+    image: vylino-crm:${VYLINO_IMAGE_TAG:-production}
+    command: ["yarn", "worker:prod"]
+    environment:
+      <<: *vylino-environment
+      DISABLE_DB_MIGRATIONS: "true"
+      DISABLE_CRON_JOBS_REGISTRATION: "true"
+    volumes:
+      - server-local-data:/app/packages/twenty-server/.local-storage
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      server:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${PG_DATABASE_NAME:-vylino}
+      POSTGRES_USER: ${PG_DATABASE_USER:-postgres}
+      POSTGRES_PASSWORD: ${PG_DATABASE_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_DATABASE_USER:-postgres} -d ${PG_DATABASE_NAME:-vylino}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+networks:
+  traefik-proxy:
+    external: true
+
+volumes:
+  db-data:
+  redis-data:
+  server-local-data:
