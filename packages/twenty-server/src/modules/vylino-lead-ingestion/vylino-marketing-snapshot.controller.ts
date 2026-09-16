@@ -1,8 +1,19 @@
-import { Body, Controller, HttpCode, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 
 import { timingSafeEqual } from 'crypto';
 import type { Request, Response } from 'express';
 import { ApiPath } from 'twenty-shared/types';
+
+import { NoPermissionGuard } from 'src/engine/guards/no-permission.guard';
+import { PublicEndpointGuard } from 'src/engine/guards/public-endpoint.guard';
 
 const MARKETING_PROVIDERS = [
   'ALL',
@@ -55,6 +66,27 @@ type MarketingSnapshotRequest = {
 type GraphQlResponse<T> = {
   data?: T;
   errors?: Array<{ message?: string }>;
+};
+
+type MarketingSnapshotNode = {
+  id?: string;
+  snapshotKey?: string;
+};
+
+type MarketingSnapshotConnection = {
+  edges?: Array<{ node?: MarketingSnapshotNode }>;
+};
+
+type FindMarketingSnapshotResponse = {
+  vylinoMarketingSnapshots?: MarketingSnapshotConnection;
+};
+
+type UpdateMarketingSnapshotResponse = {
+  updateVylinoMarketingSnapshots?: MarketingSnapshotConnection;
+};
+
+type CreateMarketingSnapshotResponse = {
+  createVylinoMarketingSnapshot?: MarketingSnapshotNode;
 };
 
 const safeSecretEquals = (supplied: string, expected: string) => {
@@ -202,7 +234,7 @@ class MarketingSnapshotTransport {
 
   async upsert(snapshot: MarketingSnapshotInput) {
     const normalized = this.normalize(snapshot);
-    const existing = await this.request<any>(
+    const existing = await this.request<FindMarketingSnapshotResponse>(
       `query FindVylinoMarketingSnapshot($snapshotKey: String!) {
         vylinoMarketingSnapshots(
           filter: { snapshotKey: { eq: $snapshotKey } }
@@ -217,7 +249,7 @@ class MarketingSnapshotTransport {
     const existingId = existing.vylinoMarketingSnapshots?.edges?.[0]?.node?.id;
 
     if (existingId) {
-      await this.request<any>(
+      await this.request<UpdateMarketingSnapshotResponse>(
         `mutation UpdateVylinoMarketingSnapshot($id: UUID!, $data: VylinoMarketingSnapshotUpdateInput!) {
           updateVylinoMarketingSnapshots(
             filter: { id: { eq: $id } }
@@ -229,10 +261,10 @@ class MarketingSnapshotTransport {
         { id: existingId, data: normalized },
       );
 
-      return { id: existingId as string, created: false };
+      return { id: existingId, created: false };
     }
 
-    const created = await this.request<any>(
+    const created = await this.request<CreateMarketingSnapshotResponse>(
       `mutation CreateVylinoMarketingSnapshot($data: VylinoMarketingSnapshotCreateInput!) {
         createVylinoMarketingSnapshot(data: $data) { id snapshotKey }
       }`,
@@ -245,7 +277,7 @@ class MarketingSnapshotTransport {
       throw new Error('Twenty createVylinoMarketingSnapshot did not return an id');
     }
 
-    return { id: id as string, created: true };
+    return { id, created: true };
   }
 }
 
@@ -253,6 +285,7 @@ class MarketingSnapshotTransport {
 export class VylinoMarketingSnapshotController {
   @Post('snapshots')
   @HttpCode(200)
+  @UseGuards(PublicEndpointGuard, NoPermissionGuard)
   async ingest(
     @Req() request: Request,
     @Res() response: Response,
