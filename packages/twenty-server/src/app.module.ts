@@ -54,6 +54,7 @@ const MIGRATED_REST_METHODS = [
 ];
 
 const VYLINO_LEAD_INGESTION_ROUTE = `${ApiPath.Rest}/vylino/leads/ingest`;
+const VYLINO_MARKETING_SNAPSHOT_ROUTE = `${ApiPath.Rest}/vylino/marketing/snapshots`;
 
 @Module({
   imports: [
@@ -124,6 +125,10 @@ export class AppModule {
           path: VYLINO_LEAD_INGESTION_ROUTE,
           method: RequestMethod.POST,
         },
+        {
+          path: VYLINO_MARKETING_SNAPSHOT_ROUTE,
+          method: RequestMethod.POST,
+        },
       )
       .forRoutes({ path: '*path', method: RequestMethod.ALL });
 
@@ -161,10 +166,16 @@ export class AppModule {
       );
 
       if (method === RequestMethod.POST) {
-        middleware.exclude({
-          path: VYLINO_LEAD_INGESTION_ROUTE,
-          method: RequestMethod.POST,
-        });
+        middleware.exclude(
+          {
+            path: VYLINO_LEAD_INGESTION_ROUTE,
+            method: RequestMethod.POST,
+          },
+          {
+            path: VYLINO_MARKETING_SNAPSHOT_ROUTE,
+            method: RequestMethod.POST,
+          },
+        );
       }
 
       middleware.forRoutes({ path: `${ApiPath.Rest}/*path`, method });
