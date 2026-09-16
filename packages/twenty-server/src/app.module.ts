@@ -39,6 +39,7 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
 import { UnhandledExceptionFilter } from 'src/filters/unhandled-exception.filter';
 import { ModulesModule } from 'src/modules/modules.module';
 import { VylinoLeadIngestionModule } from 'src/modules/vylino-lead-ingestion/vylino-lead-ingestion.module';
+import { VylinoWhatsAppModule } from 'src/modules/vylino-whatsapp/vylino-whatsapp.module';
 
 import { ClickHouseModule } from './database/clickhouse/clickhouse.module';
 import { CoreEngineModule } from './engine/core-modules/core-engine.module';
@@ -57,13 +58,29 @@ const VYLINO_LEAD_INGESTION_ROUTE = `${ApiPath.Rest}/vylino/leads/ingest`;
 const VYLINO_MARKETING_SNAPSHOT_ROUTE = `${ApiPath.Rest}/vylino/marketing/snapshots`;
 const VYLINO_MARKETING_SYNC_RUN_ROUTE = `${ApiPath.Rest}/vylino/marketing/sync/run`;
 const VYLINO_MARKETING_SYNC_STATUS_ROUTE = `${ApiPath.Rest}/vylino/marketing/sync/status`;
+const VYLINO_WHATSAPP_META_WEBHOOK_ROUTE = `${ApiPath.Rest}/vylino/whatsapp/webhook/meta`;
+const VYLINO_WHATSAPP_EVOLUTION_WEBHOOK_ROUTE = `${ApiPath.Rest}/vylino/whatsapp/webhook/evolution`;
+const VYLINO_WHATSAPP_SEND_ROUTE = `${ApiPath.Rest}/vylino/whatsapp/send`;
+const VYLINO_WHATSAPP_TAKEOVER_ROUTE = `${ApiPath.Rest}/vylino/whatsapp/conversations/:conversationKey/takeover`;
+const VYLINO_WHATSAPP_RELEASE_ROUTE = `${ApiPath.Rest}/vylino/whatsapp/conversations/:conversationKey/release`;
+const VYLINO_WHATSAPP_CATALOG_SEED_ROUTE = `${ApiPath.Rest}/vylino/whatsapp/catalog/seed`;
+const VYLINO_CASHFREE_WEBHOOK_ROUTE = `${ApiPath.Rest}/vylino/whatsapp/webhook/cashfree`;
 
 const VYLINO_PUBLIC_POST_ROUTES = [
   VYLINO_LEAD_INGESTION_ROUTE,
   VYLINO_MARKETING_SNAPSHOT_ROUTE,
   VYLINO_MARKETING_SYNC_RUN_ROUTE,
   VYLINO_MARKETING_SYNC_STATUS_ROUTE,
+  VYLINO_WHATSAPP_META_WEBHOOK_ROUTE,
+  VYLINO_WHATSAPP_EVOLUTION_WEBHOOK_ROUTE,
+  VYLINO_WHATSAPP_SEND_ROUTE,
+  VYLINO_WHATSAPP_TAKEOVER_ROUTE,
+  VYLINO_WHATSAPP_RELEASE_ROUTE,
+  VYLINO_WHATSAPP_CATALOG_SEED_ROUTE,
+  VYLINO_CASHFREE_WEBHOOK_ROUTE,
 ];
+
+const VYLINO_PUBLIC_GET_ROUTES = [VYLINO_WHATSAPP_META_WEBHOOK_ROUTE];
 
 @Module({
   imports: [
@@ -78,7 +95,7 @@ const VYLINO_PUBLIC_POST_ROUTES = [
     CoreEngineModule,
     ModulesModule,
     VylinoLeadIngestionModule,
-    // Needed for the user workspace middleware
+    VylinoWhatsAppModule,
     WorkspaceCacheStorageModule,
     CoreGraphQLApiModule,
     MetadataGraphQLApiModule,
@@ -112,19 +129,12 @@ export class AppModule {
       );
     }
 
-    // Messaque Queue explorer only for sync driver
-    // Maybe we don't need to conditionaly register the explorer, because we're creating a jobs module
-    // that will expose classes that are only used in the queue worker
-
     return modules;
   }
 
   configure(consumer: MiddlewareConsumer) {
-    // Before any middleware that authenticates from the session cookie.
     consumer
       .apply(CookieSessionCsrfMiddleware)
-      // A cross-origin form post from the identity provider, authenticated on the
-      // assertion rather than the cookie.
       .exclude(
         {
           path: `${ApiPath.Auth}/saml/callback/:identityProviderId`,
@@ -133,6 +143,10 @@ export class AppModule {
         ...VYLINO_PUBLIC_POST_ROUTES.map((path) => ({
           path,
           method: RequestMethod.POST,
+        })),
+        ...VYLINO_PUBLIC_GET_ROUTES.map((path) => ({
+          path,
+          method: RequestMethod.GET,
         })),
       )
       .forRoutes({ path: '*path', method: RequestMethod.ALL });
@@ -175,6 +189,14 @@ export class AppModule {
           ...VYLINO_PUBLIC_POST_ROUTES.map((path) => ({
             path,
             method: RequestMethod.POST,
+          })),
+        );
+      }
+      if (method === RequestMethod.GET) {
+        middleware.exclude(
+          ...VYLINO_PUBLIC_GET_ROUTES.map((path) => ({
+            path,
+            method: RequestMethod.GET,
           })),
         );
       }

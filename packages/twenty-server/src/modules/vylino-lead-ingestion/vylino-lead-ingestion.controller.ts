@@ -119,7 +119,8 @@ export class VylinoLeadIngestionController {
       return response.status(500).json({
         ok: false,
         error: 'lead_ingestion_failed',
-        message: error instanceof Error ? error.message : 'Lead ingestion failed',
+        message:
+          error instanceof Error ? error.message : 'Lead ingestion failed',
         idempotencyKey: body.idempotencyKey,
       });
     }

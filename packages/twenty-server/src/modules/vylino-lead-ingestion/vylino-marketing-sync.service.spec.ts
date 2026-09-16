@@ -38,7 +38,10 @@ describe('VylinoMarketingSyncService', () => {
     process.env.VYLINO_MARKETING_SYNC_ENABLED = 'false';
     const state = makeState();
     const executor = makeExecutor();
-    const service = new VylinoMarketingSyncService(state as never, executor as never);
+    const service = new VylinoMarketingSyncService(
+      state as never,
+      executor as never,
+    );
 
     await expect(service.run('scheduled')).resolves.toMatchObject({
       skipped: true,
@@ -57,7 +60,10 @@ describe('VylinoMarketingSyncService', () => {
     const state = makeState();
     const executor = makeExecutor();
     executor.isConfigured.mockReturnValue(false);
-    const service = new VylinoMarketingSyncService(state as never, executor as never);
+    const service = new VylinoMarketingSyncService(
+      state as never,
+      executor as never,
+    );
 
     await expect(service.run('manual')).resolves.toMatchObject({
       skipped: true,
@@ -72,7 +78,10 @@ describe('VylinoMarketingSyncService', () => {
     const state = makeState();
     state.acquireLock.mockResolvedValue(null);
     const executor = makeExecutor();
-    const service = new VylinoMarketingSyncService(state as never, executor as never);
+    const service = new VylinoMarketingSyncService(
+      state as never,
+      executor as never,
+    );
 
     await expect(service.run('scheduled')).resolves.toMatchObject({
       skipped: true,
@@ -86,7 +95,10 @@ describe('VylinoMarketingSyncService', () => {
     process.env.VYLINO_MARKETING_SYNC_ENABLED = 'true';
     const state = makeState();
     const executor = makeExecutor();
-    const service = new VylinoMarketingSyncService(state as never, executor as never);
+    const service = new VylinoMarketingSyncService(
+      state as never,
+      executor as never,
+    );
 
     await expect(service.run('manual')).resolves.toMatchObject({
       ok: true,
@@ -116,9 +128,14 @@ describe('VylinoMarketingSyncService', () => {
     const state = makeState();
     const executor = makeExecutor();
     executor.execute.mockRejectedValue(new Error('Meta API unavailable'));
-    const service = new VylinoMarketingSyncService(state as never, executor as never);
+    const service = new VylinoMarketingSyncService(
+      state as never,
+      executor as never,
+    );
 
-    await expect(service.run('scheduled')).rejects.toThrow('Meta API unavailable');
+    await expect(service.run('scheduled')).rejects.toThrow(
+      'Meta API unavailable',
+    );
 
     expect(state.markFailed).toHaveBeenCalledWith(
       expect.objectContaining({

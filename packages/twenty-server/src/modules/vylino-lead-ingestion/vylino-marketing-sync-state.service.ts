@@ -131,10 +131,7 @@ export class VylinoMarketingSyncStateService {
     });
   }
 
-  async markSkipped(
-    trigger: VylinoMarketingSyncTrigger,
-    reason: string,
-  ) {
+  async markSkipped(trigger: VylinoMarketingSyncTrigger, reason: string) {
     const previous = await this.getStatus();
 
     await this.setStatus({
