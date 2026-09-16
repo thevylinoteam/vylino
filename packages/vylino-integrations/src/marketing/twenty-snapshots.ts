@@ -37,6 +37,8 @@ export type TwentyMarketingSnapshot = {
   syncedAt: string;
 };
 
+const MAX_SNAPSHOTS_PER_REQUEST = 40;
+
 const normalizeProvider = (provider?: string): TwentyMarketingSnapshotProvider => {
   switch (provider) {
     case 'google_ads':
@@ -70,18 +72,35 @@ const asIsoDateTime = (value?: string) => {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
 };
 
+const assertSingleCurrency = (records: MarketingMetricRecord[]) => {
+  const currencies = new Set(
+    records
+      .map((record) => record.currency?.trim().toUpperCase())
+      .filter((currency): currency is string => Boolean(currency)),
+  );
+
+  if (currencies.size > 1) {
+    throw new Error(
+      `Cannot aggregate marketing snapshots across currencies: ${[...currencies].join(', ')}`,
+    );
+  }
+
+  return [...currencies][0];
+};
+
 export const buildTwentyMarketingSnapshots = (
   records: MarketingMetricRecord[],
   period: TwentyMarketingSnapshotPeriod,
   range?: { from?: string; to?: string },
 ): TwentyMarketingSnapshot[] => {
+  const currencyCode = assertSingleCurrency(records);
   const summary = buildMarketingDashboardSummary(records, range);
   const syncedAt = summary.generatedAt;
   const common = {
     period,
     periodStart: asIsoDateTime(summary.from),
     periodEnd: asIsoDateTime(summary.to),
-    currencyCode: summary.currency,
+    currencyCode,
     syncedAt,
   } as const;
 
@@ -109,7 +128,8 @@ export const buildTwentyMarketingSnapshots = (
   for (const campaign of summary.byCampaign) {
     const separator = campaign.key.indexOf(':');
     const rawProvider = separator >= 0 ? campaign.key.slice(0, separator) : '';
-    const campaignId = separator >= 0 ? campaign.key.slice(separator + 1) : campaign.key;
+    const campaignId =
+      separator >= 0 ? campaign.key.slice(separator + 1) : campaign.key;
     const normalizedProvider = normalizeProvider(rawProvider);
 
     snapshots.push({
@@ -126,25 +146,26 @@ export const buildTwentyMarketingSnapshots = (
   return snapshots;
 };
 
-export const publishTwentyMarketingSnapshots = async (input: {
+const publishSnapshotBatch = async (input: {
   baseUrl: string;
   sharedSecret: string;
   snapshots: TwentyMarketingSnapshot[];
-  fetchImpl?: typeof fetch;
+  fetchImpl: typeof fetch;
 }) => {
-  const fetchImpl = input.fetchImpl ?? fetch;
-  const baseUrl = input.baseUrl.replace(/\/$/, '');
-  const response = await fetchImpl(`${baseUrl}/rest/vylino/marketing/snapshots`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-vylino-ingest-key': input.sharedSecret,
+  const response = await input.fetchImpl(
+    `${input.baseUrl}/rest/vylino/marketing/snapshots`,
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-vylino-ingest-key': input.sharedSecret,
+      },
+      body: JSON.stringify({
+        version: '2026-09-16',
+        snapshots: input.snapshots,
+      }),
     },
-    body: JSON.stringify({
-      version: '2026-09-16',
-      snapshots: input.snapshots,
-    }),
-  });
+  );
 
   const body = (await response.json()) as {
     ok?: boolean;
@@ -157,9 +178,45 @@ export const publishTwentyMarketingSnapshots = async (input: {
 
   if (!response.ok || !body.ok) {
     throw new Error(
-      body.message ?? body.error ?? `Twenty marketing snapshot publish failed with ${response.status}`,
+      body.message ??
+        body.error ??
+        `Twenty marketing snapshot publish failed with ${response.status}`,
     );
   }
 
   return body;
+};
+
+export const publishTwentyMarketingSnapshots = async (input: {
+  baseUrl: string;
+  sharedSecret: string;
+  snapshots: TwentyMarketingSnapshot[];
+  fetchImpl?: typeof fetch;
+}) => {
+  const fetchImpl = input.fetchImpl ?? fetch;
+  const baseUrl = input.baseUrl.replace(/\/$/, '');
+  const totals = { processed: 0, created: 0, updated: 0 };
+
+  for (
+    let offset = 0;
+    offset < input.snapshots.length;
+    offset += MAX_SNAPSHOTS_PER_REQUEST
+  ) {
+    const batch = input.snapshots.slice(
+      offset,
+      offset + MAX_SNAPSHOTS_PER_REQUEST,
+    );
+    const result = await publishSnapshotBatch({
+      baseUrl,
+      sharedSecret: input.sharedSecret,
+      snapshots: batch,
+      fetchImpl,
+    });
+
+    totals.processed += result.processed ?? batch.length;
+    totals.created += result.created ?? 0;
+    totals.updated += result.updated ?? 0;
+  }
+
+  return { ok: true, ...totals };
 };
