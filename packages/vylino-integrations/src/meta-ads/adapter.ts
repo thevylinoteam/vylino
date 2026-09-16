@@ -8,8 +8,18 @@ import type {
 } from '../provider-adapter';
 import type { MetaAdsRecord } from './types';
 
+export interface MetaAdsApiClient {
+  testConnection(accountId: string): Promise<boolean>;
+  syncRecords(input: {
+    accountId: string;
+    cursor?: VylinoSyncCursor;
+  }): Promise<VylinoSyncResult<MetaAdsRecord>>;
+}
+
 export class MetaAdsAdapter implements VylinoProviderAdapter<MetaAdsRecord> {
   readonly provider = 'meta_ads' as const;
+
+  constructor(private readonly client: MetaAdsApiClient) {}
 
   async testConnection(
     connection: VylinoIntegrationConnection,
@@ -18,14 +28,21 @@ export class MetaAdsAdapter implements VylinoProviderAdapter<MetaAdsRecord> {
       return { ok: false, message: 'Connection provider mismatch.' };
     }
 
+    const accountId = connection.externalAccountId;
+
+    if (!accountId) {
+      return { ok: false, message: 'Meta Ads account ID is missing.' };
+    }
+
     if (connection.status !== 'connected') {
       return { ok: false, message: 'Meta Ads connection is not active.' };
     }
 
+    const ok = await this.client.testConnection(accountId);
+
     return {
-      ok: true,
-      message:
-        'Meta Ads connection metadata is valid. Live API verification is performed by the runtime connector.',
+      ok,
+      message: ok ? undefined : 'Meta Ads connection test failed.',
     };
   }
 
@@ -33,16 +50,18 @@ export class MetaAdsAdapter implements VylinoProviderAdapter<MetaAdsRecord> {
     connection: VylinoIntegrationConnection,
     cursor?: VylinoSyncCursor,
   ): Promise<VylinoSyncResult<MetaAdsRecord>> {
+    const accountId = connection.externalAccountId;
+
+    if (!accountId) {
+      throw new Error('Meta Ads account ID is missing.');
+    }
+
     const connectionCheck = await this.testConnection(connection);
 
     if (!connectionCheck.ok) {
       throw new Error(connectionCheck.message ?? 'Meta Ads connection failed.');
     }
 
-    return {
-      records: [],
-      nextCursor: cursor,
-      syncedAt: new Date().toISOString(),
-    };
+    return this.client.syncRecords({ accountId, cursor });
   }
 }
