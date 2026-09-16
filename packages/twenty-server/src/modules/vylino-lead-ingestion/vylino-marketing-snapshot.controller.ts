@@ -4,17 +4,34 @@ import { timingSafeEqual } from 'crypto';
 import type { Request, Response } from 'express';
 import { ApiPath } from 'twenty-shared/types';
 
+const MARKETING_PROVIDERS = [
+  'ALL',
+  'GOOGLE_ADS',
+  'META_ADS',
+  'ORGANIC',
+  'SOCIAL',
+  'OTHER',
+] as const;
+const MARKETING_PERIODS = [
+  'LAST_7_DAYS',
+  'LAST_30_DAYS',
+  'MONTH_TO_DATE',
+  'ALL_TIME',
+  'DAILY',
+  'CUSTOM',
+] as const;
+const MARKETING_SCOPES = ['ACCOUNT', 'CAMPAIGN'] as const;
+const MAX_SNAPSHOTS_PER_REQUEST = 40;
+
+type MarketingProvider = (typeof MARKETING_PROVIDERS)[number];
+type MarketingPeriod = (typeof MARKETING_PERIODS)[number];
+type MarketingScope = (typeof MARKETING_SCOPES)[number];
+
 type MarketingSnapshotInput = {
   snapshotKey: string;
-  provider: 'ALL' | 'GOOGLE_ADS' | 'META_ADS' | 'ORGANIC' | 'SOCIAL' | 'OTHER';
-  period:
-    | 'LAST_7_DAYS'
-    | 'LAST_30_DAYS'
-    | 'MONTH_TO_DATE'
-    | 'ALL_TIME'
-    | 'DAILY'
-    | 'CUSTOM';
-  scope: 'ACCOUNT' | 'CAMPAIGN';
+  provider: MarketingProvider;
+  period: MarketingPeriod;
+  scope: MarketingScope;
   periodStart?: string;
   periodEnd?: string;
   externalCampaignId?: string;
@@ -56,6 +73,47 @@ const finiteOrZero = (value: unknown) =>
 const optionalText = (value: unknown) =>
   typeof value === 'string' && value.trim() ? value.trim() : undefined;
 
+const optionalIsoDateTime = (value: unknown) => {
+  const text = optionalText(value);
+  if (!text) return undefined;
+
+  const date = new Date(text);
+
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+};
+
+const isOneOf = <T extends readonly string[]>(
+  values: T,
+  value: unknown,
+): value is T[number] => typeof value === 'string' && values.includes(value);
+
+const expectedSnapshotKey = (snapshot: MarketingSnapshotInput) =>
+  snapshot.scope === 'CAMPAIGN'
+    ? `${snapshot.provider}:${snapshot.period}:CAMPAIGN:${snapshot.externalCampaignId}`
+    : `${snapshot.provider}:${snapshot.period}:ACCOUNT`;
+
+const isValidSnapshot = (snapshot: unknown): snapshot is MarketingSnapshotInput => {
+  if (!snapshot || typeof snapshot !== 'object') return false;
+
+  const value = snapshot as Partial<MarketingSnapshotInput>;
+
+  if (
+    typeof value.snapshotKey !== 'string' ||
+    !value.snapshotKey.trim() ||
+    !isOneOf(MARKETING_PROVIDERS, value.provider) ||
+    !isOneOf(MARKETING_PERIODS, value.period) ||
+    !isOneOf(MARKETING_SCOPES, value.scope)
+  ) {
+    return false;
+  }
+
+  if (value.scope === 'CAMPAIGN' && !optionalText(value.externalCampaignId)) {
+    return false;
+  }
+
+  return value.snapshotKey.trim() === expectedSnapshotKey(value as MarketingSnapshotInput);
+};
+
 const isMarketingSnapshotRequest = (
   value: unknown,
 ): value is MarketingSnapshotRequest => {
@@ -63,18 +121,11 @@ const isMarketingSnapshotRequest = (
 
   const request = value as Partial<MarketingSnapshotRequest>;
 
-  if (request.version !== '2026-09-16' || !Array.isArray(request.snapshots)) {
-    return false;
-  }
-
-  return request.snapshots.every(
-    (snapshot) =>
-      snapshot &&
-      typeof snapshot.snapshotKey === 'string' &&
-      snapshot.snapshotKey.trim().length > 0 &&
-      typeof snapshot.provider === 'string' &&
-      typeof snapshot.period === 'string' &&
-      typeof snapshot.scope === 'string',
+  return (
+    request.version === '2026-09-16' &&
+    Array.isArray(request.snapshots) &&
+    request.snapshots.length <= MAX_SNAPSHOTS_PER_REQUEST &&
+    request.snapshots.every(isValidSnapshot)
   );
 };
 
@@ -124,12 +175,12 @@ class MarketingSnapshotTransport {
     const revenue = finiteOrZero(snapshot.revenue);
 
     return {
-      snapshotKey: snapshot.snapshotKey.trim(),
+      snapshotKey: expectedSnapshotKey(snapshot),
       provider: snapshot.provider,
       period: snapshot.period,
       scope: snapshot.scope,
-      periodStart: optionalText(snapshot.periodStart),
-      periodEnd: optionalText(snapshot.periodEnd),
+      periodStart: optionalIsoDateTime(snapshot.periodStart),
+      periodEnd: optionalIsoDateTime(snapshot.periodEnd),
       externalCampaignId: optionalText(snapshot.externalCampaignId),
       campaignName: optionalText(snapshot.campaignName),
       currencyCode: optionalText(snapshot.currencyCode)?.toUpperCase(),
@@ -145,7 +196,7 @@ class MarketingSnapshotTransport {
       roas: spend > 0 ? revenue / spend : 0,
       ctr: impressions > 0 ? clicks / impressions : 0,
       leadToCustomerRate: leads > 0 ? customers / leads : 0,
-      syncedAt: optionalText(snapshot.syncedAt) ?? new Date().toISOString(),
+      syncedAt: optionalIsoDateTime(snapshot.syncedAt) ?? new Date().toISOString(),
     };
   }
 
@@ -226,10 +277,11 @@ export class VylinoMarketingSnapshotController {
       return response.status(401).json({ ok: false, error: 'unauthorized' });
     }
 
-    if (!isMarketingSnapshotRequest(body) || body.snapshots.length > 500) {
+    if (!isMarketingSnapshotRequest(body)) {
       return response.status(400).json({
         ok: false,
         error: 'invalid_payload',
+        maxSnapshots: MAX_SNAPSHOTS_PER_REQUEST,
       });
     }
 
