@@ -13,11 +13,15 @@
   "scripts": {
     "twenty": "twenty",
     "lint": "oxlint -c .oxlintrc.json .",
-    "lint:fix": "oxlint --fix -c .oxlintrc.json ."
+    "lint:fix": "oxlint --fix -c .oxlintrc.json .",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
     "@types/node": "^24.7.2",
+    "@types/react": "^19.0.0",
     "oxlint": "^0.16.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "twenty-client-sdk": "2.38.0",
     "twenty-sdk": "2.38.0",
     "typescript": "^5.9.3"
