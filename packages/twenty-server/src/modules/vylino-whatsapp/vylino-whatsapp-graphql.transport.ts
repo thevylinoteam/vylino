@@ -29,10 +29,40 @@ type MessageNode = {
 type MessageQuery = { vylinoWhatsAppMessages?: Connection<MessageNode> };
 type MessageCreate = { createVylinoWhatsAppMessage?: MessageNode };
 type MessageUpdate = { updateVylinoWhatsAppMessages?: Connection<MessageNode> };
-type CatalogQuery = { vylinoServiceCatalogItems?: Connection<VylinoServiceCatalogItem> };
-type PaymentQuery = { vylinoPaymentRequests?: Connection<VylinoPaymentRequest> };
+type CatalogQuery = {
+  vylinoServiceCatalogItems?: Connection<VylinoServiceCatalogItem>;
+};
+type PaymentQuery = {
+  vylinoPaymentRequests?: Connection<VylinoPaymentRequest>;
+};
 type PaymentCreate = { createVylinoPaymentRequest?: VylinoPaymentRequest };
-type PaymentUpdate = { updateVylinoPaymentRequests?: Connection<VylinoPaymentRequest> };
+type PaymentUpdate = {
+  updateVylinoPaymentRequests?: Connection<VylinoPaymentRequest>;
+};
+type OpportunityNode = {
+  id?: string;
+  name?: string;
+  vylinoSalesStage?: string;
+};
+type OpportunityCreate = { createOpportunity?: OpportunityNode };
+type OpportunityUpdate = { updateOpportunities?: Connection<OpportunityNode> };
+
+const stageForConversationStatus = (status: unknown) => {
+  switch (status) {
+    case 'WAITING_CUSTOMER':
+      return 'QUALIFIED';
+    case 'WAITING_PAYMENT':
+      return 'PROPOSAL_SENT';
+    case 'HUMAN_HANDOFF':
+      return 'CONTACTED';
+    case 'WON':
+      return 'WON';
+    case 'CLOSED':
+      return 'LOST';
+    default:
+      return undefined;
+  }
+};
 
 export class VylinoWhatsAppGraphqlTransport {
   constructor(
@@ -67,6 +97,57 @@ export class VylinoWhatsAppGraphqlTransport {
     return payload.data;
   }
 
+  private async createOpportunityForConversation(
+    input: Record<string, unknown>,
+  ): Promise<string | undefined> {
+    const personId =
+      typeof input.personRecordId === 'string' ? input.personRecordId : undefined;
+    if (!personId) return undefined;
+
+    const displayName =
+      typeof input.displayName === 'string' && input.displayName.trim()
+        ? input.displayName.trim()
+        : typeof input.waId === 'string'
+          ? input.waId
+          : 'WhatsApp';
+
+    const data = await this.request<OpportunityCreate>(
+      `mutation CreateVylinoWhatsAppOpportunity($data: OpportunityCreateInput!) {
+        createOpportunity(data: $data) { id name vylinoSalesStage }
+      }`,
+      {
+        data: {
+          name: `WhatsApp Lead — ${displayName}`,
+          vylinoSalesStage: 'NEW_LEAD',
+          pointOfContactId: personId,
+        },
+      },
+    );
+
+    return data.createOpportunity?.id;
+  }
+
+  private async updateOpportunityStage(opportunityId: string, stage: string) {
+    const data = await this.request<OpportunityUpdate>(
+      `mutation UpdateVylinoWhatsAppOpportunityStage(
+        $id: UUID!
+        $data: OpportunityUpdateInput!
+      ) {
+        updateOpportunities(
+          filter: { id: { eq: $id } }
+          data: $data
+        ) {
+          edges { node { id name vylinoSalesStage } }
+        }
+      }`,
+      { id: opportunityId, data: { vylinoSalesStage: stage } },
+    );
+
+    if (!data.updateOpportunities?.edges?.[0]?.node?.id) {
+      throw new Error('Twenty did not update the WhatsApp opportunity stage');
+    }
+  }
+
   async findConversation(
     conversationKey: string,
   ): Promise<VylinoWhatsAppConversation | undefined> {
@@ -91,14 +172,21 @@ export class VylinoWhatsAppGraphqlTransport {
   }
 
   async createConversation(input: Record<string, unknown>) {
+    const dataToCreate = { ...input };
+    if (!dataToCreate.opportunityRecordId) {
+      const opportunityRecordId = await this.createOpportunityForConversation(input);
+      if (opportunityRecordId) dataToCreate.opportunityRecordId = opportunityRecordId;
+    }
+
     const data = await this.request<ConversationCreate>(
       `mutation CreateVylinoWhatsAppConversation($data: VylinoWhatsAppConversationCreateInput!) {
         createVylinoWhatsAppConversation(data: $data) {
           id conversationKey waId displayName provider status automationMode
-          personRecordId lastInboundAt serviceWindowExpiresAt recommendedServiceKey
+          personRecordId opportunityRecordId lastInboundAt serviceWindowExpiresAt
+          recommendedServiceKey
         }
       }`,
-      { data: input },
+      { data: dataToCreate },
     );
     const conversation = data.createVylinoWhatsAppConversation;
     if (!conversation?.id) {
@@ -128,10 +216,17 @@ export class VylinoWhatsAppGraphqlTransport {
       }`,
       { id, data: patch },
     );
-    const conversation = data.updateVylinoWhatsAppConversations?.edges?.[0]?.node;
+    const conversation =
+      data.updateVylinoWhatsAppConversations?.edges?.[0]?.node;
     if (!conversation?.id) {
       throw new Error('Twenty did not update the WhatsApp conversation');
     }
+
+    const stage = stageForConversationStatus(patch.status);
+    if (stage && conversation.opportunityRecordId) {
+      await this.updateOpportunityStage(conversation.opportunityRecordId, stage);
+    }
+
     return conversation;
   }
 
@@ -161,7 +256,11 @@ export class VylinoWhatsAppGraphqlTransport {
     return data.createVylinoWhatsAppMessage;
   }
 
-  async updateMessageStatus(externalMessageId: string, status: string, error?: string) {
+  async updateMessageStatus(
+    externalMessageId: string,
+    status: string,
+    error?: string,
+  ) {
     const data = await this.request<MessageUpdate>(
       `mutation UpdateVylinoWhatsAppMessageStatus(
         $externalMessageId: String!
@@ -194,7 +293,10 @@ export class VylinoWhatsAppGraphqlTransport {
     );
     return (data.vylinoServiceCatalogItems?.edges ?? [])
       .map((edge) => edge.node)
-      .filter((node): node is VylinoServiceCatalogItem => Boolean(node?.id && node.serviceKey));
+      .filter(
+        (node): node is VylinoServiceCatalogItem =>
+          Boolean(node?.id && node.serviceKey),
+      );
   }
 
   async findCatalogItem(serviceKey: string) {
@@ -226,7 +328,9 @@ export class VylinoWhatsAppGraphqlTransport {
       { data: input },
     );
     const payment = data.createVylinoPaymentRequest;
-    if (!payment?.id) throw new Error('Twenty did not create the payment request');
+    if (!payment?.id) {
+      throw new Error('Twenty did not create the payment request');
+    }
     return payment;
   }
 
