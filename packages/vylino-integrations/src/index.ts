@@ -19,6 +19,7 @@ export * from './lead-ingestion/wordpress-handler';
 export * from './marketing/aggregate';
 export * from './marketing/dashboard-contract';
 export * from './marketing/mappers';
+export * from './marketing/sync-to-twenty';
 export * from './marketing/twenty-snapshots';
 export * from './marketing/types';
 export * from './meta-ads/adapter';
