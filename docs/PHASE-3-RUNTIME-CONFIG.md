@@ -101,6 +101,7 @@ If a configured provider returns no metric rows, the run fails without overwriti
 - Sync status is retained in Redis for 30 days.
 - Provider credentials are read only from server environment variables.
 - Provider data is fetched before snapshot persistence begins.
+- Provider execution now occurs inside `twenty-server`; `VYLINO_MARKETING_SYNC_EXECUTOR_URL` is no longer required.
 
 ## Current output semantics
 
