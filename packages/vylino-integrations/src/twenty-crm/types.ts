@@ -17,6 +17,7 @@ export type TwentyOpportunityRecord = {
   id: string;
   name?: string;
   amount?: number;
+  currencyCode?: string;
   stage?: string;
   personId?: string;
   companyId?: string;
@@ -39,10 +40,10 @@ export type TwentyCompanyCreateInput = {
 export type TwentyOpportunityCreateInput = {
   name: string;
   amount?: number;
+  currencyCode?: string;
   stage?: string;
   personId?: string;
   companyId?: string;
-  sourceLeadId?: string;
 };
 
 export type TwentyLeadPersistenceResult = {
@@ -58,6 +59,7 @@ export type PersistLeadOptions = {
   createOpportunity?: boolean;
   opportunityName?: string;
   opportunityAmount?: number;
+  opportunityCurrencyCode?: string;
   opportunityStage?: string;
   companyName?: string;
 };
