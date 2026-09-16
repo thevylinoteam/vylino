@@ -5,6 +5,7 @@ export type VylinoAutomationEventName =
   | 'opportunity.won'
   | 'opportunity.lost'
   | 'project.created'
+  | 'crm.revenue_attributed'
   | 'ads.google.sync.completed'
   | 'ads.meta.sync.completed'
   | 'social.post.scheduled'
