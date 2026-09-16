@@ -20,16 +20,69 @@ import type {
 
 const INTENT_TERMS: Record<VylinoIntent, string[]> = {
   GREETING: ['hi', 'hello', 'hey', 'namaste', 'hii'],
-  WEBSITE_DEVELOPMENT: ['website', 'web site', 'wordpress', 'landing page', 'redesign'],
-  ECOMMERCE: ['ecommerce', 'e-commerce', 'online store', 'shopify', 'woocommerce'],
+  WEBSITE_DEVELOPMENT: [
+    'website',
+    'web site',
+    'wordpress',
+    'landing page',
+    'redesign',
+  ],
+  ECOMMERCE: [
+    'ecommerce',
+    'e-commerce',
+    'online store',
+    'shopify',
+    'woocommerce',
+  ],
   SEO: ['seo', 'ranking', 'organic traffic', 'search engine'],
-  DIGITAL_MARKETING: ['digital marketing', 'social media marketing', 'online marketing'],
-  ADS: ['google ads', 'meta ads', 'facebook ads', 'instagram ads', 'ppc', 'paid ads'],
-  PRICE: ['price', 'pricing', 'cost', 'charges', 'rate', 'budget', 'quotation', 'quote'],
+  DIGITAL_MARKETING: [
+    'digital marketing',
+    'social media marketing',
+    'online marketing',
+  ],
+  ADS: [
+    'google ads',
+    'meta ads',
+    'facebook ads',
+    'instagram ads',
+    'ppc',
+    'paid ads',
+  ],
+  PRICE: [
+    'price',
+    'pricing',
+    'cost',
+    'charges',
+    'rate',
+    'budget',
+    'quotation',
+    'quote',
+  ],
   PAYMENT: ['payment', 'pay now', 'payment link', 'upi', 'invoice'],
-  SUPPORT: ['support', 'problem', 'issue', 'not working', 'complaint', 'refund'],
-  HUMAN: ['human', 'agent', 'person', 'executive', 'call me', 'talk to someone'],
-  OPT_OUT: ['stop', 'unsubscribe', 'cancel messages', 'do not message', "don't message", 'opt out'],
+  SUPPORT: [
+    'support',
+    'problem',
+    'issue',
+    'not working',
+    'complaint',
+    'refund',
+  ],
+  HUMAN: [
+    'human',
+    'agent',
+    'person',
+    'executive',
+    'call me',
+    'talk to someone',
+  ],
+  OPT_OUT: [
+    'stop',
+    'unsubscribe',
+    'cancel messages',
+    'do not message',
+    "don't message",
+    'opt out',
+  ],
   UNKNOWN: [],
 };
 
@@ -41,12 +94,15 @@ const INTENT_HINTS: Partial<Record<VylinoIntent, string[]>> = {
   ADS: ['google ads', 'meta ads', 'facebook ads', 'instagram ads', 'ppc'],
 };
 
-const normalize = (value: string) => value.toLowerCase().replace(/\s+/g, ' ').trim();
+const normalize = (value: string) =>
+  value.toLowerCase().replace(/\s+/g, ' ').trim();
 const cleanPhone = (waId: string) => waId.replace(/\D/g, '');
 
 @Injectable()
 export class VylinoWhatsAppAutomationService {
-  constructor(private readonly providerService: VylinoWhatsAppProviderService) {}
+  constructor(
+    private readonly providerService: VylinoWhatsAppProviderService,
+  ) {}
 
   private get transports() {
     const graphqlUrl = process.env.VYLINO_TWENTY_GRAPHQL_URL;
@@ -69,7 +125,10 @@ export class VylinoWhatsAppAutomationService {
     let intent: VylinoIntent = 'UNKNOWN';
     let matchedTerms: string[] = [];
 
-    for (const [candidate, terms] of Object.entries(INTENT_TERMS) as [VylinoIntent, string[]][]) {
+    for (const [candidate, terms] of Object.entries(INTENT_TERMS) as [
+      VylinoIntent,
+      string[],
+    ][]) {
       if (candidate === 'UNKNOWN') continue;
       const matches = terms.filter((term) => normalized.includes(term));
       if (matches.length > matchedTerms.length) {
@@ -80,7 +139,10 @@ export class VylinoWhatsAppAutomationService {
 
     return {
       intent,
-      confidence: intent === 'UNKNOWN' ? 0.25 : Math.min(0.98, 0.62 + matchedTerms.length * 0.12),
+      confidence:
+        intent === 'UNKNOWN'
+          ? 0.25
+          : Math.min(0.98, 0.62 + matchedTerms.length * 0.12),
       matchedTerms,
     };
   }
@@ -103,10 +165,17 @@ export class VylinoWhatsAppAutomationService {
         ]
           .map((term) => normalize(term))
           .filter(Boolean);
-        const matchedTerms = [...new Set(terms)].filter((term) => normalized.includes(term));
-        const catalogText = normalize(`${item.name} ${item.category ?? ''} ${item.keywords ?? ''}`);
-        const intentBoost = hints.some((hint) => catalogText.includes(hint)) ? 4 : 0;
-        const score = matchedTerms.length * 2 + intentBoost + (item.priority ?? 0) / 100;
+        const matchedTerms = [...new Set(terms)].filter((term) =>
+          normalized.includes(term),
+        );
+        const catalogText = normalize(
+          `${item.name} ${item.category ?? ''} ${item.keywords ?? ''}`,
+        );
+        const intentBoost = hints.some((hint) => catalogText.includes(hint))
+          ? 4
+          : 0;
+        const score =
+          matchedTerms.length * 2 + intentBoost + (item.priority ?? 0) / 100;
         return { item, score, matchedTerms };
       })
       .filter((result) => result.score > 0)
@@ -145,14 +214,21 @@ export class VylinoWhatsAppAutomationService {
     const { whatsapp } = this.transports;
     await Promise.all(
       statuses.map((status) =>
-        whatsapp.updateMessageStatus(status.messageId, status.status, status.error),
+        whatsapp.updateMessageStatus(
+          status.messageId,
+          status.status,
+          status.error,
+        ),
       ),
     );
   }
 
-  private async processInboundMessage(message: VylinoNormalizedWhatsAppMessage) {
+  private async processInboundMessage(
+    message: VylinoNormalizedWhatsAppMessage,
+  ) {
     const { whatsapp, crm } = this.transports;
-    if (await whatsapp.messageExists(message.externalMessageId)) return 'duplicate' as const;
+    if (await whatsapp.messageExists(message.externalMessageId))
+      return 'duplicate' as const;
 
     const phone = cleanPhone(message.waId);
     const person =
@@ -178,8 +254,9 @@ export class VylinoWhatsAppAutomationService {
         provider: message.provider,
         status: 'OPEN',
         automationMode:
-          (process.env.VYLINO_WHATSAPP_AUTOMATION_MODE_DEFAULT as VylinoWhatsAppAutomationMode | undefined) ??
-          'BOT',
+          (process.env.VYLINO_WHATSAPP_AUTOMATION_MODE_DEFAULT as
+            | VylinoWhatsAppAutomationMode
+            | undefined) ?? 'BOT',
         personRecordId: person.id,
         lastInboundAt: message.timestamp,
         serviceWindowExpiresAt,
@@ -212,9 +289,13 @@ export class VylinoWhatsAppAutomationService {
       messageAt: message.timestamp,
     });
 
-    if (!this.enabled || !this.providerService.isConfigured) return 'persisted' as const;
+    if (!this.enabled || !this.providerService.isConfigured)
+      return 'persisted' as const;
     if (conversation.status === 'OPTED_OUT') return 'persisted' as const;
-    if (conversation.automationMode === 'HUMAN' || conversation.automationMode === 'PAUSED') {
+    if (
+      conversation.automationMode === 'HUMAN' ||
+      conversation.automationMode === 'PAUSED'
+    ) {
       return 'persisted' as const;
     }
 
@@ -237,7 +318,11 @@ export class VylinoWhatsAppAutomationService {
       return 'opted_out' as const;
     }
 
-    if (intent.intent === 'HUMAN' || intent.intent === 'SUPPORT' || intent.confidence < 0.5) {
+    if (
+      intent.intent === 'HUMAN' ||
+      intent.intent === 'SUPPORT' ||
+      intent.confidence < 0.5
+    ) {
       await whatsapp.updateConversation(conversation.id, {
         status: 'HUMAN_HANDOFF',
         automationMode: 'HUMAN',
@@ -257,8 +342,11 @@ export class VylinoWhatsAppAutomationService {
     const recommended = recommendations[0]?.item;
 
     if (intent.intent === 'PAYMENT') {
-      const serviceKey = recommended?.serviceKey ?? conversation.recommendedServiceKey;
-      const item = serviceKey ? await whatsapp.findCatalogItem(serviceKey) : undefined;
+      const serviceKey =
+        recommended?.serviceKey ?? conversation.recommendedServiceKey;
+      const item = serviceKey
+        ? await whatsapp.findCatalogItem(serviceKey)
+        : undefined;
       if (item?.basePrice && item.basePrice > 0) {
         await this.createAndSendPaymentLink(conversation, item);
         return 'payment_link' as const;
@@ -277,7 +365,8 @@ export class VylinoWhatsAppAutomationService {
       status: 'WAITING_CUSTOMER',
       lastIntent: intent.intent,
       lastIntentConfidence: intent.confidence,
-      recommendedServiceKey: recommended?.serviceKey ?? conversation.recommendedServiceKey,
+      recommendedServiceKey:
+        recommended?.serviceKey ?? conversation.recommendedServiceKey,
     });
     await this.sendAndPersist(conversation, reply, intent);
     return 'replied' as const;
@@ -349,7 +438,8 @@ export class VylinoWhatsAppAutomationService {
 
     const windowOpen =
       Boolean(conversation.serviceWindowExpiresAt) &&
-      new Date(conversation.serviceWindowExpiresAt as string).getTime() > Date.now();
+      new Date(conversation.serviceWindowExpiresAt as string).getTime() >
+        Date.now();
 
     const sent = input.templateName
       ? await this.providerService.sendTemplate({
@@ -461,10 +551,12 @@ export class VylinoWhatsAppAutomationService {
   }): Promise<VylinoCashfreePaymentResult> {
     const clientId = process.env.CASHFREE_CLIENT_ID;
     const clientSecret = process.env.CASHFREE_CLIENT_SECRET;
-    if (!clientId || !clientSecret) throw new Error('Cashfree is not configured');
+    if (!clientId || !clientSecret)
+      throw new Error('Cashfree is not configured');
 
     const paymentKey = `wa_${Date.now()}_${randomUUID().slice(0, 8)}`;
-    const production = process.env.CASHFREE_ENVIRONMENT?.toLowerCase() === 'production';
+    const production =
+      process.env.CASHFREE_ENVIRONMENT?.toLowerCase() === 'production';
     const baseUrl = production
       ? 'https://api.cashfree.com/pg'
       : 'https://sandbox.cashfree.com/pg';
@@ -508,7 +600,9 @@ export class VylinoWhatsAppAutomationService {
       message?: string;
     };
     if (!response.ok || !payload.link_url || !payload.link_id) {
-      throw new Error(payload.message ?? `Cashfree request failed: ${response.status}`);
+      throw new Error(
+        payload.message ?? `Cashfree request failed: ${response.status}`,
+      );
     }
 
     return {
@@ -522,7 +616,11 @@ export class VylinoWhatsAppAutomationService {
     };
   }
 
-  verifyCashfreeSignature(rawBody: Buffer, timestamp?: string, signature?: string) {
+  verifyCashfreeSignature(
+    rawBody: Buffer,
+    timestamp?: string,
+    signature?: string,
+  ) {
     const secret = process.env.CASHFREE_CLIENT_SECRET;
     if (!secret || !timestamp || !signature) return false;
     const expected = createHmac('sha256', secret)
@@ -563,37 +661,48 @@ export class VylinoWhatsAppAutomationService {
       event.event ??
       'ACTIVE';
     const upper = rawStatus.toUpperCase();
-    const status = upper.includes('PAID') || upper.includes('SUCCESS')
-      ? 'PAID'
-      : upper.includes('PARTIAL')
-        ? 'PARTIALLY_PAID'
-        : upper.includes('CANCEL')
-          ? 'CANCELLED'
-          : upper.includes('EXPIRE')
-            ? 'EXPIRED'
-            : upper.includes('FAIL')
-              ? 'FAILED'
-              : 'ACTIVE';
+    const status =
+      upper.includes('PAID') || upper.includes('SUCCESS')
+        ? 'PAID'
+        : upper.includes('PARTIAL')
+          ? 'PARTIALLY_PAID'
+          : upper.includes('CANCEL')
+            ? 'CANCELLED'
+            : upper.includes('EXPIRE')
+              ? 'EXPIRED'
+              : upper.includes('FAIL')
+                ? 'FAILED'
+                : 'ACTIVE';
 
     await whatsapp.updatePaymentRequest(payment.id, {
       status,
       ...(status === 'PAID'
-        ? { paidAt: event.data?.payment?.payment_time ?? new Date().toISOString() }
+        ? {
+            paidAt:
+              event.data?.payment?.payment_time ?? new Date().toISOString(),
+          }
         : {}),
     });
 
     if (payment.conversationKey) {
-      const conversation = await whatsapp.findConversation(payment.conversationKey);
+      const conversation = await whatsapp.findConversation(
+        payment.conversationKey,
+      );
       if (conversation) {
         await whatsapp.updateConversation(conversation.id, {
           paymentStatus: status,
           status: status === 'PAID' ? 'WON' : conversation.status,
         });
 
-        if (status === 'PAID' && this.enabled && this.providerService.isConfigured) {
+        if (
+          status === 'PAID' &&
+          this.enabled &&
+          this.providerService.isConfigured
+        ) {
           const windowOpen =
             Boolean(conversation.serviceWindowExpiresAt) &&
-            new Date(conversation.serviceWindowExpiresAt as string).getTime() > Date.now();
+            new Date(conversation.serviceWindowExpiresAt as string).getTime() >
+              Date.now();
           if (windowOpen) {
             await this.sendAndPersist(
               conversation,
@@ -602,8 +711,10 @@ export class VylinoWhatsAppAutomationService {
           } else if (process.env.VYLINO_WHATSAPP_PAYMENT_SUCCESS_TEMPLATE) {
             await this.providerService.sendTemplate({
               to: conversation.waId,
-              templateName: process.env.VYLINO_WHATSAPP_PAYMENT_SUCCESS_TEMPLATE,
-              languageCode: process.env.VYLINO_WHATSAPP_TEMPLATE_LANGUAGE ?? 'en',
+              templateName:
+                process.env.VYLINO_WHATSAPP_PAYMENT_SUCCESS_TEMPLATE,
+              languageCode:
+                process.env.VYLINO_WHATSAPP_TEMPLATE_LANGUAGE ?? 'en',
             });
           }
         }

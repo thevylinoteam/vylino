@@ -101,7 +101,9 @@ export class VylinoWhatsAppGraphqlTransport {
     input: Record<string, unknown>,
   ): Promise<string | undefined> {
     const personId =
-      typeof input.personRecordId === 'string' ? input.personRecordId : undefined;
+      typeof input.personRecordId === 'string'
+        ? input.personRecordId
+        : undefined;
     if (!personId) return undefined;
 
     const displayName =
@@ -174,8 +176,10 @@ export class VylinoWhatsAppGraphqlTransport {
   async createConversation(input: Record<string, unknown>) {
     const dataToCreate = { ...input };
     if (!dataToCreate.opportunityRecordId) {
-      const opportunityRecordId = await this.createOpportunityForConversation(input);
-      if (opportunityRecordId) dataToCreate.opportunityRecordId = opportunityRecordId;
+      const opportunityRecordId =
+        await this.createOpportunityForConversation(input);
+      if (opportunityRecordId)
+        dataToCreate.opportunityRecordId = opportunityRecordId;
     }
 
     const data = await this.request<ConversationCreate>(
@@ -224,7 +228,10 @@ export class VylinoWhatsAppGraphqlTransport {
 
     const stage = stageForConversationStatus(patch.status);
     if (stage && conversation.opportunityRecordId) {
-      await this.updateOpportunityStage(conversation.opportunityRecordId, stage);
+      await this.updateOpportunityStage(
+        conversation.opportunityRecordId,
+        stage,
+      );
     }
 
     return conversation;
@@ -293,9 +300,8 @@ export class VylinoWhatsAppGraphqlTransport {
     );
     return (data.vylinoServiceCatalogItems?.edges ?? [])
       .map((edge) => edge.node)
-      .filter(
-        (node): node is VylinoServiceCatalogItem =>
-          Boolean(node?.id && node.serviceKey),
+      .filter((node): node is VylinoServiceCatalogItem =>
+        Boolean(node?.id && node.serviceKey),
       );
   }
 

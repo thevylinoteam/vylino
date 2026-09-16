@@ -56,10 +56,6 @@ export class VylinoLeadIdempotencyStore {
   }
 
   async release(idempotencyKey: string): Promise<void> {
-    await this.redis.eval(
-      RELEASE_IF_PENDING_LUA,
-      1,
-      this.key(idempotencyKey),
-    );
+    await this.redis.eval(RELEASE_IF_PENDING_LUA, 1, this.key(idempotencyKey));
   }
 }

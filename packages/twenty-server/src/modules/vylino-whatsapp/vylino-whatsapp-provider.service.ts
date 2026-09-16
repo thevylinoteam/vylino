@@ -26,20 +26,21 @@ export class VylinoWhatsAppProviderService {
     if (this.provider === 'EVOLUTION') {
       return Boolean(
         process.env.EVOLUTION_API_BASE_URL &&
-          process.env.EVOLUTION_API_KEY &&
-          process.env.EVOLUTION_INSTANCE_NAME,
+        process.env.EVOLUTION_API_KEY &&
+        process.env.EVOLUTION_INSTANCE_NAME,
       );
     }
 
     return Boolean(
       process.env.WHATSAPP_CLOUD_ACCESS_TOKEN &&
-        process.env.WHATSAPP_CLOUD_PHONE_NUMBER_ID,
+      process.env.WHATSAPP_CLOUD_PHONE_NUMBER_ID,
     );
   }
 
   verifyMetaSignature(rawBody: Buffer, signatureHeader?: string) {
     const appSecret =
-      process.env.VYLINO_WHATSAPP_META_APP_SECRET ?? process.env.META_APP_SECRET;
+      process.env.VYLINO_WHATSAPP_META_APP_SECRET ??
+      process.env.META_APP_SECRET;
     if (!appSecret || !signatureHeader?.startsWith('sha256=')) return false;
 
     const hex = signatureHeader.slice('sha256='.length);
@@ -47,7 +48,9 @@ export class VylinoWhatsAppProviderService {
     const expected = createHmac('sha256', appSecret).update(rawBody).digest();
     const supplied = Buffer.from(hex, 'hex');
 
-    return supplied.length === expected.length && timingSafeEqual(supplied, expected);
+    return (
+      supplied.length === expected.length && timingSafeEqual(supplied, expected)
+    );
   }
 
   parseMetaWebhook(payload: unknown) {
@@ -144,7 +147,10 @@ export class VylinoWhatsAppProviderService {
           conversation?: string;
           extendedTextMessage?: { text?: string };
           buttonsResponseMessage?: { selectedDisplayText?: string };
-          listResponseMessage?: { title?: string; singleSelectReply?: { selectedRowId?: string } };
+          listResponseMessage?: {
+            title?: string;
+            singleSelectReply?: { selectedRowId?: string };
+          };
         };
         messageTimestamp?: number | string;
       };
@@ -232,10 +238,14 @@ export class VylinoWhatsAppProviderService {
     };
     if (!response.ok || !payload.messages?.[0]?.id) {
       throw new Error(
-        payload.error?.message ?? `Meta WhatsApp send failed: ${response.status}`,
+        payload.error?.message ??
+          `Meta WhatsApp send failed: ${response.status}`,
       );
     }
-    return { messageId: payload.messages[0].id, acceptedAt: new Date().toISOString() };
+    return {
+      messageId: payload.messages[0].id,
+      acceptedAt: new Date().toISOString(),
+    };
   }
 
   private sendMetaText(to: string, text: string) {
@@ -274,7 +284,9 @@ export class VylinoWhatsAppProviderService {
       message?: string;
     };
     if (!response.ok || !payload.key?.id) {
-      throw new Error(payload.message ?? `Evolution API send failed: ${response.status}`);
+      throw new Error(
+        payload.message ?? `Evolution API send failed: ${response.status}`,
+      );
     }
     return { messageId: payload.key.id, acceptedAt: new Date().toISOString() };
   }

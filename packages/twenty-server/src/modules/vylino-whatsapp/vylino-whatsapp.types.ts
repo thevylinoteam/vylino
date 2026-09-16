@@ -1,5 +1,9 @@
 export type VylinoWhatsAppProvider = 'META_CLOUD' | 'EVOLUTION';
-export type VylinoWhatsAppAutomationMode = 'BOT' | 'ASSISTED' | 'HUMAN' | 'PAUSED';
+export type VylinoWhatsAppAutomationMode =
+  | 'BOT'
+  | 'ASSISTED'
+  | 'HUMAN'
+  | 'PAUSED';
 export type VylinoWhatsAppConversationStatus =
   | 'OPEN'
   | 'WAITING_CUSTOMER'

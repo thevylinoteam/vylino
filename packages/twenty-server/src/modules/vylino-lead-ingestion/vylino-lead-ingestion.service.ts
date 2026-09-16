@@ -191,7 +191,9 @@ export const validateWordPressLeadWebhook = (
   if (!lead) throw new Error('Lead ingestion payload is missing lead data');
 
   if (!lead.identity?.name && !lead.identity?.email && !lead.identity?.phone) {
-    throw new Error('Lead must include at least a name, email, or phone number');
+    throw new Error(
+      'Lead must include at least a name, email, or phone number',
+    );
   }
 };
 

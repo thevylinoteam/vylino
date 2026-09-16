@@ -212,7 +212,8 @@ export class VylinoMarketingSnapshotTransport {
       roas: spend > 0 ? revenue / spend : 0,
       ctr: impressions > 0 ? clicks / impressions : 0,
       leadToCustomerRate: leads > 0 ? customers / leads : 0,
-      syncedAt: optionalIsoDateTime(snapshot.syncedAt) ?? new Date().toISOString(),
+      syncedAt:
+        optionalIsoDateTime(snapshot.syncedAt) ?? new Date().toISOString(),
     };
   }
 
@@ -258,7 +259,9 @@ export class VylinoMarketingSnapshotTransport {
     const id = created.createVylinoMarketingSnapshot?.id;
 
     if (!id) {
-      throw new Error('Twenty createVylinoMarketingSnapshot did not return an id');
+      throw new Error(
+        'Twenty createVylinoMarketingSnapshot did not return an id',
+      );
     }
 
     return { id, created: true };

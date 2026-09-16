@@ -61,7 +61,9 @@ export class VylinoWhatsAppController {
   ) {
     const rawBody = request.rawBody;
     if (!rawBody) {
-      return response.status(400).json({ ok: false, error: 'raw_body_unavailable' });
+      return response
+        .status(400)
+        .json({ ok: false, error: 'raw_body_unavailable' });
     }
     if (
       !this.provider.verifyMetaSignature(
@@ -69,7 +71,9 @@ export class VylinoWhatsAppController {
         request.header('x-hub-signature-256'),
       )
     ) {
-      return response.status(401).json({ ok: false, error: 'invalid_signature' });
+      return response
+        .status(401)
+        .json({ ok: false, error: 'invalid_signature' });
     }
 
     try {
@@ -81,7 +85,8 @@ export class VylinoWhatsAppController {
       return response.status(500).json({
         ok: false,
         error: 'whatsapp_webhook_failed',
-        message: error instanceof Error ? error.message : 'WhatsApp webhook failed',
+        message:
+          error instanceof Error ? error.message : 'WhatsApp webhook failed',
       });
     }
   }
@@ -108,7 +113,8 @@ export class VylinoWhatsAppController {
       return response.status(500).json({
         ok: false,
         error: 'evolution_webhook_failed',
-        message: error instanceof Error ? error.message : 'Evolution webhook failed',
+        message:
+          error instanceof Error ? error.message : 'Evolution webhook failed',
       });
     }
   }
@@ -221,7 +227,9 @@ export class VylinoWhatsAppController {
         request.header('x-webhook-signature'),
       )
     ) {
-      return response.status(401).json({ ok: false, error: 'invalid_signature' });
+      return response
+        .status(401)
+        .json({ ok: false, error: 'invalid_signature' });
     }
 
     try {
@@ -231,7 +239,8 @@ export class VylinoWhatsAppController {
       return response.status(500).json({
         ok: false,
         error: 'cashfree_webhook_failed',
-        message: error instanceof Error ? error.message : 'Cashfree webhook failed',
+        message:
+          error instanceof Error ? error.message : 'Cashfree webhook failed',
       });
     }
   }

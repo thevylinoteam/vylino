@@ -179,17 +179,17 @@ export class VylinoPaidMarketingExecutorService {
   isConfigured() {
     return Boolean(
       optionalEnv('VYLINO_TWENTY_GRAPHQL_URL') &&
-        optionalEnv('VYLINO_TWENTY_API_KEY') &&
-        (this.isGoogleConfigured() || this.isMetaConfigured()),
+      optionalEnv('VYLINO_TWENTY_API_KEY') &&
+      (this.isGoogleConfigured() || this.isMetaConfigured()),
     );
   }
 
   private isGoogleConfigured() {
     return Boolean(
       optionalEnv('GOOGLE_ADS_CUSTOMER_ID') &&
-        optionalEnv('GOOGLE_ADS_CLIENT_ID') &&
-        optionalEnv('GOOGLE_ADS_CLIENT_SECRET') &&
-        optionalEnv('GOOGLE_ADS_REFRESH_TOKEN'),
+      optionalEnv('GOOGLE_ADS_CLIENT_ID') &&
+      optionalEnv('GOOGLE_ADS_CLIENT_SECRET') &&
+      optionalEnv('GOOGLE_ADS_REFRESH_TOKEN'),
     );
   }
 
@@ -201,7 +201,10 @@ export class VylinoPaidMarketingExecutorService {
 
   private async getGoogleAccessToken() {
     const now = Date.now();
-    if (this.googleAccessToken && this.googleAccessToken.expiresAt - 60_000 > now) {
+    if (
+      this.googleAccessToken &&
+      this.googleAccessToken.expiresAt - 60_000 > now
+    ) {
       return this.googleAccessToken.value;
     }
 
@@ -419,9 +422,8 @@ export class VylinoPaidMarketingExecutorService {
     const currencyCode = account.currency?.toUpperCase();
     const campaignNames = new Map(
       campaigns
-        .filter(
-          (campaign): campaign is MetaCampaign & { id: string } =>
-            Boolean(campaign.id),
+        .filter((campaign): campaign is MetaCampaign & { id: string } =>
+          Boolean(campaign.id),
         )
         .map((campaign) => [campaign.id, campaign.name ?? campaign.id]),
     );
