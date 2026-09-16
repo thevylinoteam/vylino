@@ -25,6 +25,8 @@ jobs:
 
       - name: Generate Vylino lockfile
         working-directory: packages/twenty-apps/internal/vylino
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: 'false'
         run: yarn install
 
       - name: Upload lockfile
