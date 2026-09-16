@@ -1,0 +1,11 @@
+{
+  "name": "vylino-hostinger-bootstrap",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": "^24.0.0"
+  },
+  "scripts": {
+    "build": "bash deployment/hostinger-managed/build.sh"
+  }
+}
