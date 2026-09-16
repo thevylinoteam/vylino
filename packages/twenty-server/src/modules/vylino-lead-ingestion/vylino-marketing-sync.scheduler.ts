@@ -18,7 +18,11 @@ export class VylinoMarketingSyncScheduler {
     try {
       const result = await this.syncService.run('scheduled');
 
-      if (result.skipped) {
+      if (
+        result.skipped ||
+        !('processedRecords' in result) ||
+        !('processedSnapshots' in result)
+      ) {
         this.logger.log(`Scheduled marketing sync skipped: ${result.reason}`);
         return;
       }
