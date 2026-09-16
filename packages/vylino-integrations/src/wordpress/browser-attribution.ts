@@ -38,7 +38,7 @@ export const mergeFirstTouchAttribution = (
   incoming: BrowserAttributionState,
 ): BrowserAttributionState => ({
   ...incoming,
-  ...(existing ?? {}),
+  ...existing,
 });
 
 export const toElementorHiddenFields = (
