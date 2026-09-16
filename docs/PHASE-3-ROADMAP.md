@@ -6,7 +6,7 @@ Phase 3 turns the Phase 2 integration contracts and dashboard into an operationa
 
 Automate data collection and operational workflows so Vylino Business OS continuously updates CRM, marketing, ads, social, SEO and reporting data without manual imports.
 
-## P3.1 — Runtime automation foundation
+## P3.1 — Runtime automation foundation — IMPLEMENTED
 
 - Add scheduled marketing sync runtime to Twenty server.
 - Run paid-marketing refresh hourly when enabled.
@@ -15,16 +15,20 @@ Automate data collection and operational workflows so Vylino Business OS continu
 - Record last run, last success, error and duration for health reporting.
 - Never expose provider credentials to the browser.
 
-## P3.2 — Google Ads and Meta Ads scheduled ingestion
+## P3.2 — Google Ads and Meta Ads scheduled ingestion — IMPLEMENTED IN SOURCE
 
 - Load Google OAuth and Meta access credentials from server environment / secret store.
-- Pull account, campaign and daily metrics for the configured reporting window.
-- Normalize into the unified marketing record model.
+- Pull account, campaign and rolling 30-day metrics for the configured reporting window.
+- Normalize Google Ads and Meta Ads metrics into a common server-side metric model.
 - Build account/provider/campaign snapshots.
-- Upsert snapshots into Twenty.
-- Preserve existing snapshots if a provider returns no usable records or fails.
+- Upsert snapshots directly into Twenty.
+- Preserve existing snapshots if a configured provider returns no usable records or fails.
+- Keep combined `ALL` financial snapshots currency-safe.
+- Keep API versions configurable through environment variables.
 
-## P3.3 — Sync health and retry controls
+P3.2 is considered live only after deployment credentials are configured and a manual production sync completes successfully.
+
+## P3.3 — Sync health and retry controls — NEXT
 
 - Persist sync run history.
 - Track provider status, records read, snapshots written, duration and errors.
