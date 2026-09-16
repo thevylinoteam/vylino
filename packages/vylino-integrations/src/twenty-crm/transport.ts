@@ -198,11 +198,16 @@ export class TwentyCoreApiTransport implements TwentyCrmTransport {
 
   async createOpportunity(input: TwentyOpportunityCreateInput) {
     const data: Record<string, unknown> = { name: input.name };
-    if (input.amount !== undefined) data.amount = { amountMicros: Math.round(input.amount * 1_000_000) };
+
+    if (input.amount !== undefined && input.currencyCode) {
+      data.amount = {
+        amountMicros: Math.round(input.amount * 1_000_000),
+        currencyCode: input.currencyCode,
+      };
+    }
     if (input.stage) data.stage = input.stage;
     if (input.personId) data.pointOfContactId = input.personId;
     if (input.companyId) data.companyId = input.companyId;
-    if (input.sourceLeadId) data.sourceLeadId = input.sourceLeadId;
 
     const result = await this.client.mutation({
       createOpportunity: {
@@ -219,6 +224,7 @@ export class TwentyCoreApiTransport implements TwentyCrmTransport {
       id: result.createOpportunity.id,
       name: result.createOpportunity.name ?? input.name,
       amount: input.amount,
+      currencyCode: input.currencyCode,
       stage: input.stage,
       personId: input.personId,
       companyId: input.companyId,
