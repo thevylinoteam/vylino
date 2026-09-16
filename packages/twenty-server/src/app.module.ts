@@ -63,6 +63,7 @@ const VYLINO_WHATSAPP_EVOLUTION_WEBHOOK_ROUTE = `${ApiPath.Rest}/vylino/whatsapp
 const VYLINO_WHATSAPP_SEND_ROUTE = `${ApiPath.Rest}/vylino/whatsapp/send`;
 const VYLINO_WHATSAPP_TAKEOVER_ROUTE = `${ApiPath.Rest}/vylino/whatsapp/conversations/:conversationKey/takeover`;
 const VYLINO_WHATSAPP_RELEASE_ROUTE = `${ApiPath.Rest}/vylino/whatsapp/conversations/:conversationKey/release`;
+const VYLINO_WHATSAPP_CATALOG_SEED_ROUTE = `${ApiPath.Rest}/vylino/whatsapp/catalog/seed`;
 const VYLINO_CASHFREE_WEBHOOK_ROUTE = `${ApiPath.Rest}/vylino/whatsapp/webhook/cashfree`;
 
 const VYLINO_PUBLIC_POST_ROUTES = [
@@ -75,6 +76,7 @@ const VYLINO_PUBLIC_POST_ROUTES = [
   VYLINO_WHATSAPP_SEND_ROUTE,
   VYLINO_WHATSAPP_TAKEOVER_ROUTE,
   VYLINO_WHATSAPP_RELEASE_ROUTE,
+  VYLINO_WHATSAPP_CATALOG_SEED_ROUTE,
   VYLINO_CASHFREE_WEBHOOK_ROUTE,
 ];
 
@@ -94,7 +96,6 @@ const VYLINO_PUBLIC_GET_ROUTES = [VYLINO_WHATSAPP_META_WEBHOOK_ROUTE];
     ModulesModule,
     VylinoLeadIngestionModule,
     VylinoWhatsAppModule,
-    // Needed for the user workspace middleware
     WorkspaceCacheStorageModule,
     CoreGraphQLApiModule,
     MetadataGraphQLApiModule,
