@@ -93,7 +93,10 @@ type MetaInsight = {
 
 type MetaPage<T> = {
   data?: T[];
-  paging?: { cursors?: { after?: string } };
+  paging?: {
+    cursors?: { after?: string };
+    next?: string;
+  };
   error?: MetaGraphError;
 };
 
@@ -232,7 +235,8 @@ export class VylinoPaidMarketingExecutorService {
   }
 
   private async googleSearch(customerId: string, query: string) {
-    const apiVersion = optionalEnv('GOOGLE_ADS_API_VERSION') ?? DEFAULT_GOOGLE_ADS_API_VERSION;
+    const apiVersion =
+      optionalEnv('GOOGLE_ADS_API_VERSION') ?? DEFAULT_GOOGLE_ADS_API_VERSION;
     if (!/^v\d+$/.test(apiVersion)) {
       throw new Error('GOOGLE_ADS_API_VERSION must use the form vNN.');
     }
@@ -248,14 +252,19 @@ export class VylinoPaidMarketingExecutorService {
       const developerToken = optionalEnv('GOOGLE_ADS_DEVELOPER_TOKEN');
       const loginCustomerId = optionalEnv('GOOGLE_ADS_LOGIN_CUSTOMER_ID');
       if (developerToken) headers['developer-token'] = developerToken;
-      if (loginCustomerId) headers['login-customer-id'] = loginCustomerId.replace(/-/g, '');
+      if (loginCustomerId) {
+        headers['login-customer-id'] = loginCustomerId.replace(/-/g, '');
+      }
 
       const response = await fetch(
         `https://googleads.googleapis.com/${apiVersion}/customers/${customerId}/googleAds:search`,
         {
           method: 'POST',
           headers,
-          body: JSON.stringify({ query, ...(pageToken ? { pageToken } : {}) }),
+          body: JSON.stringify({
+            query,
+            ...(pageToken ? { pageToken } : {}),
+          }),
           signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         },
       );
@@ -315,7 +324,8 @@ export class VylinoPaidMarketingExecutorService {
   }
 
   private metaUrl(path: string, params: Record<string, string | undefined>) {
-    const version = optionalEnv('META_GRAPH_API_VERSION') ?? DEFAULT_META_GRAPH_API_VERSION;
+    const version =
+      optionalEnv('META_GRAPH_API_VERSION') ?? DEFAULT_META_GRAPH_API_VERSION;
     if (!/^v\d+\.\d+$/.test(version)) {
       throw new Error('META_GRAPH_API_VERSION must use the form vNN.N.');
     }
@@ -337,17 +347,24 @@ export class VylinoPaidMarketingExecutorService {
     return { url, accessToken };
   }
 
-  private async metaFetch<T>(path: string, params: Record<string, string | undefined>) {
+  private async metaFetch<T>(
+    path: string,
+    params: Record<string, string | undefined>,
+  ) {
     const { url, accessToken } = this.metaUrl(path, params);
     const response = await fetch(url, {
-      headers: { accept: 'application/json', authorization: `Bearer ${accessToken}` },
+      headers: {
+        accept: 'application/json',
+        authorization: `Bearer ${accessToken}`,
+      },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     const payload = (await response.json()) as T & { error?: MetaGraphError };
 
     if (!response.ok || payload.error) {
       throw new Error(
-        payload.error?.message ?? `Meta Graph API failed with ${response.status}`,
+        payload.error?.message ??
+          `Meta Graph API failed with ${response.status}`,
       );
     }
 
@@ -368,7 +385,7 @@ export class VylinoPaidMarketingExecutorService {
         after,
       });
       records.push(...(page.data ?? []));
-      after = page.paging?.cursors?.after;
+      after = page.paging?.next ? page.paging.cursors?.after : undefined;
     } while (after);
 
     return records;
@@ -393,13 +410,19 @@ export class VylinoPaidMarketingExecutorService {
           'campaign_id,date_start,impressions,clicks,spend,actions,action_values',
         level: 'campaign',
         time_increment: '1',
-        time_range: JSON.stringify({ since: range.startDate, until: range.endDate }),
+        time_range: JSON.stringify({
+          since: range.startDate,
+          until: range.endDate,
+        }),
       }),
     ]);
     const currencyCode = account.currency?.toUpperCase();
     const campaignNames = new Map(
       campaigns
-        .filter((campaign): campaign is MetaCampaign & { id: string } => Boolean(campaign.id))
+        .filter(
+          (campaign): campaign is MetaCampaign & { id: string } =>
+            Boolean(campaign.id),
+        )
         .map((campaign) => [campaign.id, campaign.name ?? campaign.id]),
     );
 
@@ -512,7 +535,9 @@ export class VylinoPaidMarketingExecutorService {
       this.syncGoogle(range),
       this.syncMeta(range),
     ]);
-    const configuredResults = [google, meta].filter((result) => result.configured);
+    const configuredResults = [google, meta].filter(
+      (result) => result.configured,
+    );
 
     if (configuredResults.some((result) => result.records.length === 0)) {
       throw new Error(
