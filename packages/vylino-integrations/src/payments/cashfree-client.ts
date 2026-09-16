@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { PaymentLinkRequest, PaymentLinkResult } from '../whatsapp/types';
 
 export type CashfreePaymentConfig = {
@@ -34,7 +35,7 @@ export class CashfreePaymentLinksClient {
           'x-api-version': this.config.apiVersion ?? '2025-01-01',
           'x-client-id': this.config.clientId,
           'x-client-secret': this.config.clientSecret,
-          'x-idempotency-key': crypto.randomUUID(),
+          'x-idempotency-key': randomUUID(),
         },
         body: JSON.stringify({
           link_id: input.paymentKey,
