@@ -1,0 +1,80 @@
+name: Deploy Vylino CRM to Hostinger
+
+on:
+  push:
+    branches:
+      - release/crm-vylino-com
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vylino-crm-hostinger-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ secrets.HOSTINGER_VPS_HOST != '' && secrets.HOSTINGER_VPS_SSH_KEY != '' }}
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      HOST: ${{ secrets.HOSTINGER_VPS_HOST }}
+      SSH_USER: ${{ secrets.HOSTINGER_VPS_USER || 'root' }}
+      SSH_PORT: ${{ secrets.HOSTINGER_VPS_PORT || '22' }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' '${{ secrets.HOSTINGER_VPS_SSH_KEY }}' > ~/.ssh/vylino_hostinger
+          chmod 600 ~/.ssh/vylino_hostinger
+          ssh-keyscan -p "$SSH_PORT" -H "$HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy release branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/vylino_hostinger -p "$SSH_PORT" "$SSH_USER@$HOST" \
+            "DEPLOY_SHA='${{ github.sha }}' bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          ROOT_DIR=/opt/vylino-crm
+          REPO_URL=https://github.com/thevylinoteam/vylino.git
+          RELEASE_BRANCH=release/crm-vylino-com
+
+          if ! command -v git >/dev/null 2>&1; then
+            apt-get update
+            apt-get install -y git openssl
+          fi
+
+          if [[ ! -d "$ROOT_DIR/.git" ]]; then
+            mkdir -p "$ROOT_DIR"
+            git clone --branch "$RELEASE_BRANCH" --single-branch "$REPO_URL" "$ROOT_DIR"
+          else
+            cd "$ROOT_DIR"
+            git fetch origin "$RELEASE_BRANCH"
+            git checkout "$RELEASE_BRANCH"
+            git reset --hard "origin/$RELEASE_BRANCH"
+          fi
+
+          cd "$ROOT_DIR"
+          chmod +x deploy/hostinger/bootstrap.sh
+          VYLINO_ROOT_DIR="$ROOT_DIR" ./deploy/hostinger/bootstrap.sh "$DEPLOY_SHA"
+          REMOTE
+
+      - name: Verify public health endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent --show-error https://crm.vylino.com/healthz >/dev/null; then
+              echo "crm.vylino.com is healthy over HTTPS"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "The VPS deployment completed, but crm.vylino.com is not reachable yet. Check the DNS A record and Caddy logs." >&2
+          exit 1
