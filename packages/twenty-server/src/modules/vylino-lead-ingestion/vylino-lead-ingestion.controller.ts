@@ -1,13 +1,41 @@
 import { Body, Controller, HttpCode, Post, Req, Res } from '@nestjs/common';
+
+import { timingSafeEqual } from 'crypto';
 import type { Request, Response } from 'express';
 import { ApiPath } from 'twenty-shared/types';
 
 import { RedisClientService } from 'src/engine/core-modules/redis-client/redis-client.service';
 
-import { RedisLeadIngestionIdempotencyStore } from '../../../../vylino-integrations/src/lead-ingestion/redis-idempotency-store';
-import { handleVylinoLeadIngestionHttpRequest } from '../../../../vylino-integrations/src/server/lead-ingestion-endpoint';
-import type { WordPressLeadWebhookRequest } from '../../../../vylino-integrations/src/wordpress/webhook-contract';
 import { VylinoGraphqlCrmTransport } from './vylino-graphql-crm.transport';
+import { VylinoLeadIdempotencyStore } from './vylino-lead-ingestion.idempotency';
+import { ingestVylinoLead } from './vylino-lead-ingestion.service';
+import type { WordPressLeadWebhookRequest } from './vylino-lead-ingestion.types';
+
+const safeSecretEquals = (supplied: string, expected: string) => {
+  const suppliedBuffer = Buffer.from(supplied);
+  const expectedBuffer = Buffer.from(expected);
+
+  return (
+    suppliedBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(suppliedBuffer, expectedBuffer)
+  );
+};
+
+const isWordPressLeadWebhookRequest = (
+  value: unknown,
+): value is WordPressLeadWebhookRequest => {
+  if (!value || typeof value !== 'object') return false;
+
+  const request = value as Partial<WordPressLeadWebhookRequest>;
+
+  return (
+    request.event === 'lead.submitted' &&
+    request.version === '2026-09-16' &&
+    typeof request.sentAt === 'string' &&
+    typeof request.idempotencyKey === 'string' &&
+    Boolean(request.payload?.lead)
+  );
+};
 
 @Controller(`${ApiPath.Rest}/vylino/leads`)
 export class VylinoLeadIngestionController {
@@ -18,7 +46,7 @@ export class VylinoLeadIngestionController {
   async ingest(
     @Req() request: Request,
     @Res() response: Response,
-    @Body() body: WordPressLeadWebhookRequest,
+    @Body() body: unknown,
   ) {
     const sharedSecret = process.env.VYLINO_INGEST_SHARED_SECRET;
     const graphqlUrl = process.env.VYLINO_TWENTY_GRAPHQL_URL;
@@ -31,28 +59,58 @@ export class VylinoLeadIngestionController {
       });
     }
 
+    const suppliedSecret = request.header('x-vylino-ingest-key');
+
+    if (!suppliedSecret || !safeSecretEquals(suppliedSecret, sharedSecret)) {
+      return response.status(401).json({
+        ok: false,
+        error: 'unauthorized',
+      });
+    }
+
+    if (!isWordPressLeadWebhookRequest(body)) {
+      return response.status(400).json({
+        ok: false,
+        error: 'invalid_payload',
+      });
+    }
+
     const redis = this.redisClientService.getClient();
-    const idempotencyStore = new RedisLeadIngestionIdempotencyStore(redis);
+    const idempotencyStore = new VylinoLeadIdempotencyStore(redis);
     const crm = new VylinoGraphqlCrmTransport(graphqlUrl, apiKey);
 
-    const result = await handleVylinoLeadIngestionHttpRequest(
-      { crm, idempotencyStore },
-      {
-        sharedSecret,
-        workspaceId: process.env.VYLINO_WORKSPACE_ID,
-        createOpportunity:
-          process.env.VYLINO_CREATE_OPPORTUNITY?.toLowerCase() !== 'false',
-        opportunityStage: process.env.VYLINO_DEFAULT_OPPORTUNITY_STAGE ?? 'NEW',
-        opportunityCurrencyCode:
-          process.env.VYLINO_DEFAULT_CURRENCY_CODE ?? 'INR',
-      },
-      {
-        method: request.method,
-        headers: request.headers as Record<string, string | string[] | undefined>,
-        body,
-      },
-    );
+    try {
+      const result = await ingestVylinoLead({
+        request: body,
+        crm,
+        idempotencyStore,
+        options: {
+          createOpportunity:
+            process.env.VYLINO_CREATE_OPPORTUNITY?.toLowerCase() !== 'false',
+          opportunityStage:
+            process.env.VYLINO_DEFAULT_OPPORTUNITY_STAGE ?? 'NEW',
+          opportunityCurrencyCode:
+            process.env.VYLINO_DEFAULT_CURRENCY_CODE ?? 'INR',
+          companyName: process.env.VYLINO_DEFAULT_COMPANY_NAME,
+          writeAttributionFields:
+            process.env.VYLINO_WRITE_ATTRIBUTION_FIELDS?.toLowerCase() ===
+            'true',
+        },
+      });
 
-    return response.status(result.status).json(result.body);
+      return response.status(200).json({
+        ok: true,
+        duplicate: result.status === 'duplicate',
+        idempotencyKey: result.idempotencyKey,
+        persistence: result.persistence,
+      });
+    } catch (error) {
+      return response.status(500).json({
+        ok: false,
+        error: 'lead_ingestion_failed',
+        message: error instanceof Error ? error.message : 'Lead ingestion failed',
+        idempotencyKey: body.idempotencyKey,
+      });
+    }
   }
 }
