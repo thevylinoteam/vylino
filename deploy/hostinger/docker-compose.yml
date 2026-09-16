@@ -1,0 +1,119 @@
+name: vylino-crm
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      server:
+        condition: service_healthy
+
+  server:
+    image: ${VYLINO_IMAGE}
+    restart: unless-stopped
+    expose:
+      - "3000"
+    volumes:
+      - server-local-data:/app/packages/twenty-server/.local-storage
+    environment:
+      NODE_PORT: 3000
+      SERVER_URL: https://crm.vylino.com
+      PG_DATABASE_URL: postgres://${PG_DATABASE_USER:-postgres}:${PG_DATABASE_PASSWORD}@db:5432/${PG_DATABASE_NAME:-vylino}
+      REDIS_URL: redis://redis:6379
+      STORAGE_TYPE: local
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      FALLBACK_ENCRYPTION_KEY: ${FALLBACK_ENCRYPTION_KEY:-}
+      APP_SECRET: ${APP_SECRET:-}
+      VYLINO_WHATSAPP_ENABLED: ${VYLINO_WHATSAPP_ENABLED:-false}
+      VYLINO_MARKETING_SYNC_ENABLED: ${VYLINO_MARKETING_SYNC_ENABLED:-false}
+      VYLINO_WRITE_ATTRIBUTION_FIELDS: ${VYLINO_WRITE_ATTRIBUTION_FIELDS:-false}
+      VYLINO_INGEST_SHARED_SECRET: ${VYLINO_INGEST_SHARED_SECRET:-}
+      VYLINO_MARKETING_SYNC_SHARED_SECRET: ${VYLINO_MARKETING_SYNC_SHARED_SECRET:-}
+      VYLINO_TWENTY_GRAPHQL_URL: ${VYLINO_TWENTY_GRAPHQL_URL:-http://server:3000/graphql}
+      VYLINO_TWENTY_API_KEY: ${VYLINO_TWENTY_API_KEY:-}
+      VYLINO_WHATSAPP_PROVIDER: ${VYLINO_WHATSAPP_PROVIDER:-meta}
+      META_WHATSAPP_PHONE_NUMBER_ID: ${META_WHATSAPP_PHONE_NUMBER_ID:-}
+      META_WHATSAPP_ACCESS_TOKEN: ${META_WHATSAPP_ACCESS_TOKEN:-}
+      META_WHATSAPP_VERIFY_TOKEN: ${META_WHATSAPP_VERIFY_TOKEN:-}
+      META_WHATSAPP_APP_SECRET: ${META_WHATSAPP_APP_SECRET:-}
+      CASHFREE_CLIENT_ID: ${CASHFREE_CLIENT_ID:-}
+      CASHFREE_CLIENT_SECRET: ${CASHFREE_CLIENT_SECRET:-}
+      CASHFREE_ENVIRONMENT: ${CASHFREE_ENVIRONMENT:-sandbox}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:3000/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  worker:
+    image: ${VYLINO_IMAGE}
+    restart: unless-stopped
+    command: ["yarn", "worker:prod"]
+    volumes:
+      - server-local-data:/app/packages/twenty-server/.local-storage
+    environment:
+      SERVER_URL: https://crm.vylino.com
+      PG_DATABASE_URL: postgres://${PG_DATABASE_USER:-postgres}:${PG_DATABASE_PASSWORD}@db:5432/${PG_DATABASE_NAME:-vylino}
+      REDIS_URL: redis://redis:6379
+      STORAGE_TYPE: local
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      FALLBACK_ENCRYPTION_KEY: ${FALLBACK_ENCRYPTION_KEY:-}
+      APP_SECRET: ${APP_SECRET:-}
+      DISABLE_DB_MIGRATIONS: "true"
+      DISABLE_CRON_JOBS_REGISTRATION: "true"
+      VYLINO_WHATSAPP_ENABLED: ${VYLINO_WHATSAPP_ENABLED:-false}
+      VYLINO_MARKETING_SYNC_ENABLED: "false"
+      VYLINO_WRITE_ATTRIBUTION_FIELDS: ${VYLINO_WRITE_ATTRIBUTION_FIELDS:-false}
+      VYLINO_TWENTY_GRAPHQL_URL: ${VYLINO_TWENTY_GRAPHQL_URL:-http://server:3000/graphql}
+      VYLINO_TWENTY_API_KEY: ${VYLINO_TWENTY_API_KEY:-}
+    depends_on:
+      server:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${PG_DATABASE_NAME:-vylino}
+      POSTGRES_USER: ${PG_DATABASE_USER:-postgres}
+      POSTGRES_PASSWORD: ${PG_DATABASE_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_DATABASE_USER:-postgres} -d ${PG_DATABASE_NAME:-vylino}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  db-data:
+  redis-data:
+  server-local-data:
+  caddy-data:
+  caddy-config:
