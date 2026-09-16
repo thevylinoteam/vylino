@@ -88,7 +88,7 @@ export class VylinoLeadIngestionController {
           createOpportunity:
             process.env.VYLINO_CREATE_OPPORTUNITY?.toLowerCase() !== 'false',
           opportunityStage:
-            process.env.VYLINO_DEFAULT_OPPORTUNITY_STAGE ?? 'NEW',
+            process.env.VYLINO_DEFAULT_OPPORTUNITY_STAGE ?? 'NEW_LEAD',
           opportunityCurrencyCode:
             process.env.VYLINO_DEFAULT_CURRENCY_CODE ?? 'INR',
           companyName: process.env.VYLINO_DEFAULT_COMPANY_NAME,
