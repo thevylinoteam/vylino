@@ -1,44 +1,42 @@
 # Vylino WhatsApp AI CRM
 
-**Version:** 0.1.0  
+**Version:** 0.2.0  
 **Author:** Archana / Vylino  
 **Website:** https://www.vylino.com/  
 **License:** GNU GPL v3 or later
 
-Vylino WhatsApp AI CRM is a WordPress-native foundation for professional WhatsApp customer conversations, CRM records, AI-assisted replies, lead qualification, and safe real-time human handoff through Meta's official WhatsApp Cloud API.
+Vylino WhatsApp AI CRM is a WordPress-native system for WhatsApp customer conversations, CRM records, AI-assisted replies and safe real-time human handoff through Meta's official WhatsApp Cloud API.
 
-## Phase 1 included
+## Phase 1 implemented
 
 - Meta webhook verification and `X-Hub-Signature-256` validation.
-- Incoming WhatsApp message ingestion.
-- Outbound one-to-one text messages through the official Cloud API.
-- WordPress-native contacts, conversations, message history and audit events.
-- Basic deals, follow-up and approved-knowledge tables for the sales layer.
-- WordPress admin dashboard and shared inbox view.
-- AI/human conversation state.
+- Incoming WhatsApp message ingestion and outbound one-to-one text messages.
+- Contacts, conversations, message history, knowledge, deals, follow-ups and audit-event schema.
+- WordPress admin dashboard, settings and inbox.
+- Google Gemini Interactions API adapter using `store=false`.
+- Default Gemini model `gemini-3.6-flash`, configurable in WordPress.
+- AI/human conversation state and configurable keyword escalation.
 - Manual **Take Over** and **Return to AI** controls.
-- Configurable keyword-based human escalation.
-- Email notification when a handoff is requested.
-- Provider-independent AI integration using the `vylino_wa_generate_reply` filter.
+- Human agent reply composer; any human reply automatically pauses AI.
+- Email notification when human handoff is requested.
 
 ## Safety model
 
-AI is not allowed to be the final authority for pricing, discounts, contractual commitments or unsupported service claims. The intended architecture supplies approved Vylino knowledge to an AI adapter and pauses automation when a human takes over.
+AI is not the final authority for custom pricing, discounts, contractual commitments, guarantees or unsupported service claims. The prompt restricts AI to approved Vylino knowledge stored in the plugin. When a human takes over, automated AI replies are blocked for that conversation until an authorized user returns it to AI.
 
-## Meta setup
+## Privacy
 
-After activation, go to **Vylino WhatsApp > Settings** and configure Graph API version, Phone Number ID, Business Account ID, access token, App Secret and Verify Token. The webhook callback URL is shown on the dashboard.
+Gemini requests use the Interactions API with `store=false`; the plugin maintains customer conversation history in WordPress. Site operators remain responsible for privacy notices, lawful processing, customer consent where required, retention policy, WhatsApp Business policy compliance and Gemini/API terms.
 
-> Keep API credentials server-side. Never place access tokens or App Secrets in frontend JavaScript.
+## Setup
 
-## AI adapter contract
-
-AI is deliberately disabled in the first secure base until a provider adapter is configured. An adapter can use the `vylino_wa_generate_reply` filter and return a reply string or `WP_Error`.
-
-## Human handoff
-
-An agent can click **Take Over** at any time. Once a conversation is in `human` state, AI generation is blocked until an authorized user clicks **Return to AI**.
+1. Activate the plugin.
+2. Configure Meta WhatsApp Cloud API credentials in **Vylino WhatsApp > Settings**.
+3. Configure the callback URL shown on the plugin dashboard in Meta and subscribe to message events.
+4. Add a Gemini API key.
+5. Add approved Vylino service information to the knowledge table/UI as that module is expanded.
+6. Test on a non-production number before enabling automatic AI replies.
 
 ## License
 
-Copyright (c) 2026 Archana / Vylino. This project is free software licensed under the GNU General Public License v3 or later.
+Copyright (c) 2026 Archana / Vylino. Licensed under GNU GPL v3 or later.
