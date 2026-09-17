@@ -1,0 +1,36 @@
+<?php
+
+defined( 'ABSPATH' ) || exit;
+
+class Vylino_WA_Installer {
+    public static function activate() {
+        self::create_tables();
+        self::seed_options();
+        update_option( 'vylino_wa_db_version', VYLINO_WA_VERSION, false );
+    }
+
+    private static function create_tables() {
+        global $wpdb;
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        $charset = $wpdb->get_charset_collate();
+        $prefix  = $wpdb->prefix . 'vylino_wa_';
+        $sql = array();
+        $sql[] = "CREATE TABLE {$prefix}contacts (id bigint(20) unsigned NOT NULL AUTO_INCREMENT, wa_id varchar(64) NOT NULL, phone varchar(32) NOT NULL DEFAULT '', profile_name varchar(191) NOT NULL DEFAULT '', language varchar(16) NOT NULL DEFAULT '', lifecycle varchar(32) NOT NULL DEFAULT 'new_lead', assigned_user_id bigint(20) unsigned NOT NULL DEFAULT 0, meta_json longtext NULL, created_at datetime NOT NULL, updated_at datetime NOT NULL, PRIMARY KEY  (id), UNIQUE KEY wa_id (wa_id), KEY lifecycle (lifecycle), KEY assigned_user_id (assigned_user_id)) {$charset};";
+        $sql[] = "CREATE TABLE {$prefix}conversations (id bigint(20) unsigned NOT NULL AUTO_INCREMENT, contact_id bigint(20) unsigned NOT NULL, state varchar(20) NOT NULL DEFAULT 'ai', status varchar(20) NOT NULL DEFAULT 'open', priority varchar(20) NOT NULL DEFAULT 'normal', assigned_user_id bigint(20) unsigned NOT NULL DEFAULT 0, ai_enabled tinyint(1) NOT NULL DEFAULT 1, handoff_reason varchar(191) NOT NULL DEFAULT '', summary longtext NULL, last_message_at datetime NULL, created_at datetime NOT NULL, updated_at datetime NOT NULL, PRIMARY KEY  (id), KEY contact_id (contact_id), KEY state (state), KEY status (status), KEY assigned_user_id (assigned_user_id), KEY last_message_at (last_message_at)) {$charset};";
+        $sql[] = "CREATE TABLE {$prefix}messages (id bigint(20) unsigned NOT NULL AUTO_INCREMENT, conversation_id bigint(20) unsigned NOT NULL, contact_id bigint(20) unsigned NOT NULL, wa_message_id varchar(191) NOT NULL DEFAULT '', direction varchar(12) NOT NULL, sender_type varchar(20) NOT NULL DEFAULT 'customer', message_type varchar(32) NOT NULL DEFAULT 'text', body longtext NULL, payload_json longtext NULL, status varchar(32) NOT NULL DEFAULT '', created_at datetime NOT NULL, PRIMARY KEY  (id), UNIQUE KEY wa_message_id (wa_message_id), KEY conversation_id (conversation_id), KEY contact_id (contact_id), KEY created_at (created_at)) {$charset};";
+        $sql[] = "CREATE TABLE {$prefix}knowledge (id bigint(20) unsigned NOT NULL AUTO_INCREMENT, title varchar(191) NOT NULL, category varchar(64) NOT NULL DEFAULT 'general', content longtext NOT NULL, service_url varchar(255) NOT NULL DEFAULT '', active tinyint(1) NOT NULL DEFAULT 1, created_at datetime NOT NULL, updated_at datetime NOT NULL, PRIMARY KEY  (id), KEY category (category), KEY active (active)) {$charset};";
+        $sql[] = "CREATE TABLE {$prefix}deals (id bigint(20) unsigned NOT NULL AUTO_INCREMENT, contact_id bigint(20) unsigned NOT NULL, conversation_id bigint(20) unsigned NOT NULL DEFAULT 0, title varchar(191) NOT NULL, service varchar(100) NOT NULL DEFAULT '', stage varchar(32) NOT NULL DEFAULT 'new', value decimal(14,2) NULL, currency varchar(8) NOT NULL DEFAULT 'INR', owner_user_id bigint(20) unsigned NOT NULL DEFAULT 0, notes longtext NULL, created_at datetime NOT NULL, updated_at datetime NOT NULL, PRIMARY KEY  (id), KEY contact_id (contact_id), KEY conversation_id (conversation_id), KEY stage (stage), KEY owner_user_id (owner_user_id)) {$charset};";
+        $sql[] = "CREATE TABLE {$prefix}followups (id bigint(20) unsigned NOT NULL AUTO_INCREMENT, contact_id bigint(20) unsigned NOT NULL, conversation_id bigint(20) unsigned NOT NULL DEFAULT 0, assigned_user_id bigint(20) unsigned NOT NULL DEFAULT 0, due_at datetime NOT NULL, status varchar(20) NOT NULL DEFAULT 'open', note text NULL, created_at datetime NOT NULL, PRIMARY KEY  (id), KEY contact_id (contact_id), KEY conversation_id (conversation_id), KEY assigned_user_id (assigned_user_id), KEY due_at (due_at), KEY status (status)) {$charset};";
+        $sql[] = "CREATE TABLE {$prefix}events (id bigint(20) unsigned NOT NULL AUTO_INCREMENT, contact_id bigint(20) unsigned NOT NULL DEFAULT 0, conversation_id bigint(20) unsigned NOT NULL DEFAULT 0, event_type varchar(64) NOT NULL, actor_user_id bigint(20) unsigned NOT NULL DEFAULT 0, meta_json longtext NULL, created_at datetime NOT NULL, PRIMARY KEY  (id), KEY conversation_id (conversation_id), KEY event_type (event_type), KEY created_at (created_at)) {$charset};";
+        foreach ( $sql as $statement ) { dbDelta( $statement ); }
+    }
+
+    private static function seed_options() {
+        $defaults = array(
+            'graph_version' => 'v23.0', 'phone_number_id' => '', 'business_account_id' => '', 'access_token' => '', 'app_secret' => '',
+            'verify_token' => wp_generate_password( 32, false, false ), 'ai_provider' => 'none', 'ai_enabled' => 0, 'default_language' => 'auto',
+            'human_handoff_keywords' => 'human,person,agent,call me,quotation,quote,discount,payment,manager,executive,insaan,baat karni hai,call karo', 'retention_days' => 365,
+        );
+        if ( false === get_option( 'vylino_wa_settings', false ) ) { add_option( 'vylino_wa_settings', $defaults, '', false ); }
+    }
+}
